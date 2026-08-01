@@ -9,7 +9,6 @@ npm install
 npm run dev
 ```
 
-## Antes de pedir para uma IA continuar o projeto
 
 Este projeto segue um protocolo de continuidade entre sessões de IA. Antes de
 gerar qualquer código novo, a IA deve ler, nesta ordem:
