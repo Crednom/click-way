@@ -3,10 +3,24 @@
 
 :root {
   color-scheme: light;
-  --color-bg: #ffffff;
-  --color-text: #17181c;
-  --color-muted: #6b7280;
-  --color-accent: #2563eb;
+  --color-bg: #f5f6f8;
+  --color-surface: #ffffff;
+  --color-text: #14213d;
+  --color-muted: #5c6b84;
+  --color-border: #e1e4ea;
+
+  /* Cor por papel — usada no RoleGate e nos cabeçalhos de cada módulo */
+  --color-passenger: #0b5fa5;
+  --color-passenger-bg: #e6f1fb;
+  --color-admin: #a8380d;
+  --color-admin-bg: #faece3;
+
+  /* Severidade de notificação (seção 2.1 do spec) — definidas aqui desde já
+     para reuso consistente quando a Fase 11 implementar as notificações. */
+  --color-severity-informacao: #0b5fa5;
+  --color-severity-atencao: #b5790b;
+  --color-severity-urgente: #b3261e;
+
   --touch-target-min: 44px;
 }
 
@@ -32,6 +46,7 @@ button {
   font-family: inherit;
   min-height: var(--touch-target-min);
   min-width: var(--touch-target-min);
+  cursor: pointer;
 }
 
 img {
