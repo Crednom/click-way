@@ -12,6 +12,7 @@ import { useAppStore } from '../store/useAppStore';
 import type { UserRole } from '../shared/types';
 import RoleGate from './RoleGate';
 import AdminHome from '../features/admin/AdminHome';
+import MapUpload from '../features/admin/MapUpload';
 import HomeScreen from '../features/passenger/HomeScreen';
 
 interface RequireRoleProps {
@@ -37,6 +38,14 @@ function AppRoutes() {
           element={
             <RequireRole expected="admin">
               <AdminHome />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/mapa"
+          element={
+            <RequireRole expected="admin">
+              <MapUpload />
             </RequireRole>
           }
         />

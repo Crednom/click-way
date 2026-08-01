@@ -7,15 +7,17 @@
 // - localStorage: dados estruturados menores (POIs, nós, arestas, QR codes,
 //   plataformas, viagens, notificações, escala), serializados em JSON.
 //
-// FASE 1 (atual): apenas a infraestrutura genérica de leitura/escrita está
-// implementada. As funções de domínio (getPois, savePoi, getGraphNodes...) são
-// stubs — cada uma será preenchida na fase do roadmap (seção 11) responsável por
-// aquela funcionalidade. Isso evita implementar regras de negócio antes da tela
-// que as usa existir.
+// FASE 1: apenas a infraestrutura genérica de leitura/escrita foi implementada.
+// FASE 3: mapa/escala e o Floor fixo foram implementados (ver seção abaixo).
+// As demais funções de domínio (getPois, getGraphNodes...) continuam como
+// stubs — cada uma será preenchida na fase do roadmap (seção 11) responsável
+// por aquela funcionalidade. Isso evita implementar regras de negócio antes da
+// tela que as usa existir.
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type {
   AppNotification,
+  Floor,
   GraphEdge,
   GraphNode,
   MapImage,
@@ -96,15 +98,38 @@ export function onExternalStorageChange(callback: () => void): () => void {
 }
 
 // ---------------------------------------------------------------------------
-// Mapa (imagem + escala) — implementação chega na Fase 3 (Admin: mapa e escala).
+// Floor — MVP usa sempre um único andar fixo (seção 9 do spec: o campo
+// `floorId` existe no modelo para o futuro, mas não implementamos seletor de
+// andares nesta entrega). Criado automaticamente na primeira leitura.
 // ---------------------------------------------------------------------------
 
-export async function getMap(): Promise<MapImage | null> {
-  throw new Error('storage.getMap: não implementado ainda (ver Fase 3 do roadmap)');
+const DEFAULT_FLOOR_ID = 'floor-default';
+
+export function getDefaultFloor(): Floor {
+  const existing = readJson<Floor | null>('floor', null);
+  if (existing) return existing;
+  const floor: Floor = { id: DEFAULT_FLOOR_ID, name: 'Térreo' };
+  writeJson('floor', floor);
+  return floor;
 }
 
-export async function saveMap(_map: MapImage): Promise<void> {
-  throw new Error('storage.saveMap: não implementado ainda (ver Fase 3 do roadmap)');
+// ---------------------------------------------------------------------------
+// Mapa (imagem + escala) — implementado na Fase 3.
+// MVP tem um único mapa (um único andar), então a imagem é sempre salva sob a
+// mesma chave fixa no IndexedDB.
+// ---------------------------------------------------------------------------
+
+const MAP_IMAGE_ID = 'map-default';
+
+export async function getMap(): Promise<MapImage | null> {
+  const db = await getDb();
+  const map = await db.get(MAP_IMAGES_STORE, MAP_IMAGE_ID);
+  return map ?? null;
+}
+
+export async function saveMap(map: MapImage): Promise<void> {
+  const db = await getDb();
+  await db.put(MAP_IMAGES_STORE, { ...map, id: MAP_IMAGE_ID });
 }
 
 // ---------------------------------------------------------------------------

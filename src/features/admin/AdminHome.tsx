@@ -7,15 +7,18 @@
 // seção marcada com a fase que vai implementá-la. Decisão registrada no
 // PROGRESS.md (seção "Decisões tomadas ao longo do caminho").
 
+import { Link } from 'react-router-dom';
 import AppHeader from '../../shared/components/AppHeader';
 
 interface AdminMenuItem {
   label: string;
   phaseLabel: string;
+  /** Presente quando a tela já foi implementada; ausente = "em breve". */
+  path?: string;
 }
 
 const ADMIN_SECTIONS: AdminMenuItem[] = [
-  { label: 'Mapa e escala', phaseLabel: 'Fase 3' },
+  { label: 'Mapa e escala', phaseLabel: 'Fase 3', path: '/admin/mapa' },
   { label: 'Locais', phaseLabel: 'Fase 4' },
   { label: 'Grafo', phaseLabel: 'Fase 5' },
   { label: 'QR Codes', phaseLabel: 'Fase 9' },
@@ -33,20 +36,21 @@ function AdminHome() {
           fase do roadmap.
         </p>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {ADMIN_SECTIONS.map((section) => (
-            <li
-              key={section.label}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '14px 16px',
-                borderRadius: '12px',
-                border: '1px solid var(--color-border)',
-                background: 'var(--color-surface)',
-              }}
-            >
-              <span style={{ fontWeight: 600 }}>{section.label}</span>
+          {ADMIN_SECTIONS.map((section) => {
+            const itemStyle = {
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 16px',
+              borderRadius: '12px',
+              border: '1px solid var(--color-border)',
+              background: 'var(--color-surface)',
+              color: 'inherit',
+              textDecoration: 'none',
+              opacity: section.path ? 1 : 0.6,
+            } as const;
+
+            const badge = (
               <span
                 style={{
                   fontSize: '0.75rem',
@@ -56,10 +60,26 @@ function AdminHome() {
                   borderRadius: '999px',
                 }}
               >
-                {section.phaseLabel}
+                {section.path ? 'Abrir' : section.phaseLabel}
               </span>
-            </li>
-          ))}
+            );
+
+            return (
+              <li key={section.label}>
+                {section.path ? (
+                  <Link to={section.path} style={itemStyle}>
+                    <span style={{ fontWeight: 600 }}>{section.label}</span>
+                    {badge}
+                  </Link>
+                ) : (
+                  <div style={itemStyle}>
+                    <span style={{ fontWeight: 600 }}>{section.label}</span>
+                    {badge}
+                  </div>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </main>
     </div>
