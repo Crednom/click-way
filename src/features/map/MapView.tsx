@@ -2,8 +2,16 @@
 //
 // Usa Leaflet com `L.CRS.Simple`, tratando a planta como um plano cartesiano
 // (não um mapa geográfico com tiles) — técnica padrão para plantas/imagens
-// estáticas. Componente reutilizável: a Fase 4 (locais) e a Fase 5 (grafo) vão
-// usar os mesmos `markers` e `onMapClick` para criar POIs e nós.
+// estáticas. Componente reutilizável: usado pelas Fases 4 (locais) e 5 (grafo)
+// para criar POIs e nós.
+//
+// Revisão pós-Fase 4 (feedback do usuário): o nome do marcador antes só
+// aparecia num tooltip de hover (ruim em touch/mobile). Agora o nome fica
+// sempre visível ao lado do ícone, como no Google Maps — e pra evitar
+// poluição visual quando dois pontos estão perto um do outro, um nome só é
+// mostrado se não colidir (em pixels de tela) com o nome de um marcador já
+// desenhado. Recalculado a cada zoom/arraste, porque a distância em pixels
+// entre dois pontos muda conforme o zoom.
 
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
@@ -34,6 +42,11 @@ interface MapViewProps {
   heightPx?: number;
 }
 
+// Distância mínima (em pixels de tela) entre dois marcadores para que ambos
+// mostrem o nome. Abaixo disso, o segundo marcador mostra só o ícone.
+const MIN_LABEL_SPACING_PX = 68;
+const BADGE_SIZE = 28;
+
 function percentToLatLng(point: Point, width: number, height: number): L.LatLngTuple {
   // CRS.Simple trata +lat como "para cima". A imagem cresce em y para baixo,
   // então invertemos: yPct=0 (topo da imagem) vira lat=height (topo do mapa).
@@ -49,14 +62,28 @@ function latLngToPercent(lat: number, lng: number, width: number, height: number
   };
 }
 
-function buildMarkerIcon(marker: MapViewMarker): L.DivIcon {
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildMarkerIcon(marker: MapViewMarker, showLabel: boolean): L.DivIcon {
   const color = marker.color ?? '#0b5fa5';
-  const size = 28;
+  const badge = `<div style="width:${BADGE_SIZE}px;height:${BADGE_SIZE}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);">${marker.iconHtml ?? ''}</div>`;
+
+  const label =
+    showLabel && marker.label
+      ? `<span style="position:absolute;left:${BADGE_SIZE + 6}px;top:50%;transform:translateY(-50%);background:#fff;color:#14213d;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.25);">${escapeHtml(marker.label)}</span>`
+      : '';
+
   return L.divIcon({
     className: '', // sem a classe padrão do Leaflet (que traz fundo/borda quadrada)
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);">${marker.iconHtml ?? ''}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    html: `<div style="position:relative;width:${BADGE_SIZE}px;height:${BADGE_SIZE}px;">${badge}${label}</div>`,
+    iconSize: [BADGE_SIZE, BADGE_SIZE],
+    iconAnchor: [BADGE_SIZE / 2, BADGE_SIZE / 2],
   });
 }
 
@@ -73,12 +100,16 @@ function MapView({
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
 
-  // Refs para os callbacks: evita recriar o mapa/marcadores só porque o pai
-  // passou uma nova função entre renders.
+  // Refs para os callbacks/dados "mais recentes": evita recriar o mapa ou
+  // registrar handlers novos só porque o pai passou uma nova referência entre
+  // renders (função inline, array novo de markers etc.).
   const onMapClickRef = useRef(onMapClick);
   onMapClickRef.current = onMapClick;
   const onMarkerClickRef = useRef(onMarkerClick);
   onMarkerClickRef.current = onMarkerClick;
+  const markersRef = useRef(markers);
+  markersRef.current = markers;
+  const redrawMarkersRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -108,6 +139,42 @@ function MapView({
     markersLayerRef.current = markersLayer;
     mapRef.current = map;
 
+    // Redesenha todos os marcadores, decidindo (por proximidade em pixels de
+    // tela) quais mostram o nome. Reexecutado a cada zoom/arraste, porque a
+    // distância em pixels entre dois pontos do mapa muda com o zoom.
+    function redrawMarkers() {
+      const layer = markersLayerRef.current;
+      if (!layer) return;
+      layer.clearLayers();
+
+      const placedLabelPoints: L.Point[] = [];
+
+      markersRef.current.forEach((marker) => {
+        const latLng = percentToLatLng(marker.position, width, height);
+        const screenPoint = map.latLngToContainerPoint(latLng);
+
+        let showLabel = Boolean(marker.label);
+        if (showLabel) {
+          const collides = placedLabelPoints.some(
+            (placed) => placed.distanceTo(screenPoint) < MIN_LABEL_SPACING_PX,
+          );
+          if (collides) showLabel = false;
+        }
+        if (showLabel) placedLabelPoints.push(screenPoint);
+
+        const markerLayer = L.marker(latLng, { icon: buildMarkerIcon(marker, showLabel) });
+        markerLayer.on('click', (event: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(event);
+          onMarkerClickRef.current?.(marker.id);
+        });
+        markerLayer.addTo(layer);
+      });
+    }
+
+    redrawMarkersRef.current = redrawMarkers;
+    redrawMarkers();
+    map.on('zoomend moveend', redrawMarkers);
+
     return () => {
       map.remove();
       mapRef.current = null;
@@ -115,23 +182,12 @@ function MapView({
     };
   }, [imageDataUrl, width, height]);
 
+  // Quando a lista de markers muda (POIs criados/editados/excluídos), o
+  // conteúdo de markersRef já foi atualizado acima (fora do efeito) — só
+  // falta pedir o redesenho.
   useEffect(() => {
-    const layer = markersLayerRef.current;
-    if (!layer) return;
-    layer.clearLayers();
-    markers.forEach((marker) => {
-      const latLng = percentToLatLng(marker.position, width, height);
-      const markerLayer = L.marker(latLng, { icon: buildMarkerIcon(marker) });
-      if (marker.label) {
-        markerLayer.bindTooltip(marker.label, { direction: 'top', offset: [0, -16] });
-      }
-      markerLayer.on('click', (event: L.LeafletMouseEvent) => {
-        L.DomEvent.stopPropagation(event);
-        onMarkerClickRef.current?.(marker.id);
-      });
-      markerLayer.addTo(layer);
-    });
-  }, [markers, width, height]);
+    redrawMarkersRef.current();
+  }, [markers]);
 
   return (
     <div

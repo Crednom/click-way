@@ -133,7 +133,33 @@ Leaflet somados. Não é erro, é só informativo — não vou otimizar isso ago
 da Fase 12 (Polimento): `import()` dinâmico do Leaflet/react-dom-server só
 quando as telas que os usam forem abertas.
 
-## Decisões tomadas ao longo do caminho (lista única, consolidada)
+## Melhoria aplicada após novo teste do usuário (ainda Fase 4)
+Nome do local só aparecia num tooltip de hover — ruim em touch/mobile. Pedido:
+nome sempre visível ao lado do ícone (como no Google Maps), cuidando pra não
+poluir visualmente quando dois pontos estão próximos.
+
+`src/features/map/MapView.tsx` reescrito:
+- Removido `bindTooltip` (hover). O nome agora faz parte do próprio
+  `L.divIcon` do marcador — um "pill" branco ao lado do círculo colorido,
+  sempre visível, sem depender de hover/toque.
+- Anti-colisão: a cada redesenho (incluindo a cada zoom/arraste — evento
+  `zoomend moveend` do Leaflet), cada marcador calcula sua posição em pixels
+  de tela (`map.latLngToContainerPoint`). Um nome só é desenhado se estiver a
+  pelo menos `MIN_LABEL_SPACING_PX` (68px) de distância de outro nome já
+  desenhado nessa mesma passada; caso contrário, mostra só o ícone (sem
+  nome). Isso precisa ser recalculado a cada zoom porque a distância em
+  pixels entre dois pontos do mapa muda conforme o zoom (dois POIs que
+  colidem zoomado longe podem não colidir mais ao aproximar).
+- A ordem de prioridade de quem "ganha" o nome quando há colisão é a ordem
+  do array `markers` recebido (primeiro a desenhar, primeiro a garantir o
+  nome). Não há prioridade por categoria/importância — se isso importar no
+  futuro (ex: sempre priorizar plataformas), dá pra ordenar o array antes de
+  passar pro MapView.
+
+Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+avisos.
+
+
 - Adicionei `graphology-types` como dependência direta, não listada
   explicitamente na seção 3 do spec. É peer dependency obrigatória de
   `graphology-shortest-path` (usada para tipar o grafo); sem ela o build
@@ -184,10 +210,8 @@ quando as telas que os usam forem abertas.
   foi adicionado depois, a pedido do usuário.
 
 ## Problemas conhecidos / pendências
-- Renderização do Leaflet (mapa, marcadores com ícone, clique) validada só
-  parcialmente pelo usuário — a revisão pós-Fase 4 (z-index, ícone no
-  marcador, categorias personalizadas) ainda não foi testada no navegador,
-  só validada por tipo/build/lint neste ambiente.
+- A revisão dos nomes sempre visíveis + anti-colisão ainda não foi testada no
+  navegador por você — validada só por tipo/build/lint neste ambiente.
 - `Poi.nearestNodeId` fica `undefined` em todo POI até a Fase 5 vincular o
   grafo — esperado, não é bug.
 - Bundle final passou de 500KB minificado (aviso do Vite) — não bloqueante,
