@@ -15,6 +15,13 @@ export interface MapViewMarker {
   position: Point;
   color?: string;
   label?: string;
+  /**
+   * HTML (string) a ser desenhado dentro do círculo do marcador — ex: um
+   * ícone SVG ou uma tag <img>. Quem monta esse HTML é quem chama o MapView
+   * (ex: PoiEditor usa `renderPoiIconHtml`), pra manter este componente
+   * genérico e sem depender de conceitos de POI/categoria.
+   */
+  iconHtml?: string;
 }
 
 interface MapViewProps {
@@ -23,6 +30,7 @@ interface MapViewProps {
   height: number;
   markers?: MapViewMarker[];
   onMapClick?: (point: Point) => void;
+  onMarkerClick?: (markerId: string) => void;
   heightPx?: number;
 }
 
@@ -41,22 +49,36 @@ function latLngToPercent(lat: number, lng: number, width: number, height: number
   };
 }
 
+function buildMarkerIcon(marker: MapViewMarker): L.DivIcon {
+  const color = marker.color ?? '#0b5fa5';
+  const size = 28;
+  return L.divIcon({
+    className: '', // sem a classe padrão do Leaflet (que traz fundo/borda quadrada)
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);">${marker.iconHtml ?? ''}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 function MapView({
   imageDataUrl,
   width,
   height,
   markers = [],
   onMapClick,
+  onMarkerClick,
   heightPx = 420,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
 
-  // Ref para o callback: evita recriar o mapa inteiro só porque o pai passou
-  // uma nova função de clique entre renders.
+  // Refs para os callbacks: evita recriar o mapa/marcadores só porque o pai
+  // passou uma nova função entre renders.
   const onMapClickRef = useRef(onMapClick);
   onMapClickRef.current = onMapClick;
+  const onMarkerClickRef = useRef(onMarkerClick);
+  onMarkerClickRef.current = onMarkerClick;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -99,17 +121,15 @@ function MapView({
     layer.clearLayers();
     markers.forEach((marker) => {
       const latLng = percentToLatLng(marker.position, width, height);
-      const circle = L.circleMarker(latLng, {
-        radius: 9,
-        color: marker.color ?? '#0b5fa5',
-        weight: 2,
-        fillColor: marker.color ?? '#0b5fa5',
-        fillOpacity: 0.9,
-      });
+      const markerLayer = L.marker(latLng, { icon: buildMarkerIcon(marker) });
       if (marker.label) {
-        circle.bindTooltip(marker.label, { direction: 'top', offset: [0, -8] });
+        markerLayer.bindTooltip(marker.label, { direction: 'top', offset: [0, -16] });
       }
-      circle.addTo(layer);
+      markerLayer.on('click', (event: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(event);
+        onMarkerClickRef.current?.(marker.id);
+      });
+      markerLayer.addTo(layer);
     });
   }, [markers, width, height]);
 

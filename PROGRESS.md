@@ -1,13 +1,13 @@
 # Progresso do Click Way
 
 ## Fase atual
-Fase 4 — Admin: locais (criar/editar/excluir POI clicando no mapa, com modal de categoria/ícone/nome/descrição)
+Fase 5 — Admin: grafo (tela própria, criar nós, criar/editar/remover arestas com peso, integração graphology)
 
 ## Concluído
 - [x] Fase 1 — Setup do projeto
 - [x] Fase 2 — Base de navegação
 - [x] Fase 3 — Admin: mapa e escala
-- [ ] Fase 4 — Admin: locais
+- [x] Fase 4 — Admin: locais
 - [ ] Fase 5 — Admin: grafo
 - [ ] Fase 6 — Roteamento (Dijkstra)
 - [ ] Fase 7 — Passageiro: busca e rota
@@ -16,6 +16,11 @@ Fase 4 — Admin: locais (criar/editar/excluir POI clicando no mapa, com modal d
 - [ ] Fase 10 — Viagens
 - [ ] Fase 11 — Notificações
 - [ ] Fase 12 — Polimento
+
+> **Nota sobre este arquivo:** até a revisão da Fase 4, a seção "Decisões
+> tomadas ao longo do caminho" estava sendo reescrita inteira a cada fase
+> (bug de edição, não de código) e se repetia várias vezes no arquivo. Foi
+> consolidada numa lista única, no final do arquivo, nesta reescrita.
 
 ## O que foi feito na Fase 1
 - Projeto criado com `npm create vite@latest -- --template react-ts`.
@@ -32,161 +37,162 @@ Fase 4 — Admin: locais (criar/editar/excluir POI clicando no mapa, com modal d
   vazias receberam `.gitkeep` para serem versionadas no git).
 - `src/shared/types/index.ts` criado com o modelo de dados completo da seção 5.
 - `src/shared/lib/storage.ts` criado: infraestrutura genérica de localStorage/
-  IndexedDB (via `idb`) já funcional, incluindo `onExternalStorageChange` (usado
-  depois pela Fase 11 para a simulação admin→passageiro). As funções de domínio
-  (`getPois`, `saveMap`, `getGraphNodes` etc.) são stubs que lançam erro
-  "não implementado", cada uma com um comentário indicando em qual fase será
-  implementada — não implementei regra de negócio antes de existir tela que a
-  use.
-- `src/store/useAppStore.ts` criado com Zustand: `role` já funcional; `activeRoutePath`
-  e `notifications` têm o formato definido mas ainda não são usados por nenhuma tela.
-- `src/app/App.tsx` criado como placeholder mínimo (só confirma que o setup
-  funciona) — **será substituído pelo `RoleGate.tsx` na Fase 2**, não é a tela
-  final.
-- Validado com `npx tsc -b` (typecheck limpo) e `npm run build` (build de
-  produção OK).
-
-## Decisões tomadas ao longo do caminho
-- 31/07/2026 — Adicionei `graphology-types` como dependência direta, não listada
-  explicitamente na seção 3 do spec. É uma peer dependency obrigatória de
-  `graphology-shortest-path` (usada para tipar o grafo no TypeScript); sem ela o
-  build falha. Não é uma biblioteca nova de fato, é parte do ecossistema
-  `graphology` já escolhido.
-- 31/07/2026 — Criei `src/shared/types/index.ts` já na Fase 1, mesmo o roadmap não
-  citando esse arquivo explicitamente nela. A seção 6 do spec já lista esse
-  arquivo como parte da estrutura de pastas, e as funções stub de `storage.ts`
-  precisavam de tipos para terem assinaturas corretas. Não adiciona nenhuma
-  lógica de negócio antes da hora, só o contrato de dados.
-- 31/07/2026 — `App.tsx` foi movido para `src/app/App.tsx` (fora do padrão do
-  Vite, que cria em `src/App.tsx`), para bater com a estrutura da seção 6.
-  `main.tsx` foi ajustado para importar do novo caminho.
+  IndexedDB (via `idb`) já funcional. As funções de domínio são stubs que
+  lançam erro "não implementado", cada uma com comentário indicando em qual
+  fase será implementada.
+- `src/store/useAppStore.ts` criado com Zustand.
+- `src/app/App.tsx` criado como placeholder mínimo (substituído na Fase 2).
+- Validado com `npx tsc -b` e `npm run build`.
 
 ## O que foi feito na Fase 2
-- `src/index.css`: tokens de cor definidos — `--color-passenger` / `--color-admin`
-  (e variantes `-bg`) para diferenciar visualmente os dois módulos, e
-  `--color-severity-*` (informação/atenção/urgente) já preparados para a
-  Fase 11 reaproveitar sem redefinir paleta depois.
-- `src/app/RoleGate.tsx`: tela inicial com dois cartões grandes (área de toque
-  ampla, mobile-first) para escolher "Sou passageiro" ou "Sou administrador".
-  Ao escolher, salva o papel no store (Zustand) e navega para o módulo.
-- `src/shared/components/AppHeader.tsx`: cabeçalho reutilizado pelos dois
-  módulos, com botão "Trocar perfil" (limpa o papel e volta ao RoleGate — é o
-  mecanismo usado depois pela simulação Admin → Passageiro no mesmo
-  dispositivo).
-- `src/features/passenger/HomeScreen.tsx`: placeholder do módulo Passageiro
-  (só o layout base); conteúdo real (busca, categorias, QR) entra na Fase 7.
-- `src/features/admin/AdminHome.tsx`: menu do módulo Admin listando as seções
-  futuras e em qual fase cada uma é implementada.
-- `src/app/routes.tsx`: rotas `/`, `/admin`, `/passageiro`, com um guard
-  `RequireRole` que redireciona para `/` se o papel salvo no store não bater
-  com o módulo acessado.
-- `src/app/App.tsx` atualizado para renderizar `AppRoutes` (substitui o
-  placeholder da Fase 1).
-- Validado com `npx tsc -b`, `npm run build` e `npm run lint` (oxlint) — todos
-  limpos.
-
-## Decisões tomadas ao longo do caminho
-- 31/07/2026 — Adicionei `graphology-types` como dependência direta, não listada
-  explicitamente na seção 3 do spec. É uma peer dependency obrigatória de
-  `graphology-shortest-path` (usada para tipar o grafo no TypeScript); sem ela o
-  build falha. Não é uma biblioteca nova de fato, é parte do ecossistema
-  `graphology` já escolhido.
-- 31/07/2026 — Criei `src/shared/types/index.ts` já na Fase 1, mesmo o roadmap não
-  citando esse arquivo explicitamente nela. A seção 6 do spec já lista esse
-  arquivo como parte da estrutura de pastas, e as funções stub de `storage.ts`
-  precisavam de tipos para terem assinaturas corretas. Não adiciona nenhuma
-  lógica de negócio antes da hora, só o contrato de dados.
-- 31/07/2026 — `App.tsx` foi movido para `src/app/App.tsx` (fora do padrão do
-  Vite, que cria em `src/App.tsx`), para bater com a estrutura da seção 6.
-  `main.tsx` foi ajustado para importar do novo caminho.
-- 31/07/2026 — Criei `src/features/admin/AdminHome.tsx`, arquivo não listado na
-  seção 6 do spec original. É uma tela-índice/menu do módulo admin — necessária
-  porque nenhuma das telas reais de admin (MapUpload, PoiEditor etc.) existe
-  ainda; sem ela, `/admin` não teria o que renderizar. Vai virar a "home" do
-  módulo admin conforme as fases seguintes forem adicionando as seções reais.
-- 31/07/2026 — O `role` no Zustand não é persistido (localStorage/sessionStorage)
-  entre recarregamentos de página. Se o navegador for atualizado dentro de
-  `/admin` ou `/passageiro`, o guard `RequireRole` manda de volta pro RoleGate,
-  exigindo escolher o papel de novo. Optei por isso porque simplifica o fluxo
-  de simulação (trocar de perfil sempre passa pela escolha explícita) e evita
-  side-effects de sincronizar papel entre localStorage e o restante da store
-  antes da hora. Se isso incomodar na prática, dá pra revisar depois.
+- `src/index.css`: tokens de cor — `--color-passenger` / `--color-admin` (e
+  variantes `-bg`), e `--color-severity-*` (informação/atenção/urgente) já
+  preparados para a Fase 11.
+- `src/app/RoleGate.tsx`: tela inicial com dois cartões grandes para escolher
+  "Sou passageiro" ou "Sou administrador".
+- `src/shared/components/AppHeader.tsx`: cabeçalho com botão "Trocar perfil".
+- `src/features/passenger/HomeScreen.tsx`: placeholder do módulo Passageiro.
+- `src/features/admin/AdminHome.tsx`: menu do módulo Admin.
+- `src/app/routes.tsx`: rotas `/`, `/admin`, `/passageiro`, com guard
+  `RequireRole`.
+- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — limpos.
 
 ## O que foi feito na Fase 3
-- `src/shared/lib/coordinates.ts` (novo): conversão pixel↔percentual, distância
-  entre pontos em percentual, `computeScale` (calcula `metersPerPercentUnit` a
-  partir de dois pontos de referência + distância real) e
-  `percentDistanceToMeters` (será usada nas Fases 6/8 para instruções de rota
-  com distância real).
-- `src/shared/lib/image.ts` (novo, não listado na seção 6 original — ver
-  decisão abaixo): lê o arquivo enviado e, se passar de 2000px no maior lado,
-  redimensiona via canvas antes de gerar o data URL (boa prática da seção 9).
-- `src/shared/lib/storage.ts`: `getMap`/`saveMap` implementados de verdade
-  (IndexedDB via `idb`, chave fixa `map-default`), e `getDefaultFloor` criado
-  (Floor fixo `floor-default`, criado automaticamente na primeira leitura).
-- `src/features/map/MapView.tsx` (novo): componente central do mapa — Leaflet
-  com `CRS.Simple`, recebe a imagem da planta e desenha como overlay dentro de
-  um plano cartesiano (não mapa geográfico). Já nasce reutilizável: aceita
-  `markers` e `onMapClick`, que serão usados pelas Fases 4 (POIs) e 5 (grafo).
-- `src/features/map/MapScaleTool.tsx` (novo): componente controlado com 3
-  estados visuais (idle / escolhendo ponto A-B / digitando distância).
-- `src/features/admin/MapUpload.tsx` (novo): tela real de "Mapa e escala" —
-  upload/troca de planta, exibição via MapView, e a máquina de estados da
-  escolha dos dois pontos de referência + distância real, que calcula e salva
-  a escala.
-- `src/app/routes.tsx`: rota `/admin/mapa` adicionada (protegida pelo mesmo
-  guard `RequireRole expected="admin"`).
-- `src/features/admin/AdminHome.tsx`: item "Mapa e escala" agora é um link de
-  verdade para `/admin/mapa`; os demais continuam com selo "em breve" até
-  serem implementados.
-- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — todos limpos.
-  **Atenção:** não tenho como testar a renderização do Leaflet num navegador
-  de verdade neste ambiente (só validei tipo/build/lint) — o teste manual seu
-  no navegador é o que confirma se o mapa aparece e responde a zoom/clique
-  como esperado.
+- `src/shared/lib/coordinates.ts`: conversão pixel↔percentual, distância entre
+  pontos, `computeScale` e `percentDistanceToMeters` (uso futuro nas Fases 6/8).
+- `src/shared/lib/image.ts`: lê e comprime/redimensiona imagem antes de salvar.
+- `src/shared/lib/storage.ts`: `getMap`/`saveMap` (IndexedDB, chave fixa
+  `map-default`) e `getDefaultFloor` (Floor fixo `floor-default`).
+- `src/features/map/MapView.tsx`: componente central do mapa — Leaflet com
+  `CRS.Simple`, reutilizável (`markers`, `onMapClick`).
+- `src/features/map/MapScaleTool.tsx`: ferramenta de configuração de escala.
+- `src/features/admin/MapUpload.tsx`: tela "Mapa e escala" completa.
+- `src/app/routes.tsx` / `AdminHome.tsx`: rota `/admin/mapa` linkada.
+- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — limpos.
+  Ressalva: sem como testar a renderização do Leaflet num navegador real
+  neste ambiente — depende de validação manual.
 
-## Decisões tomadas ao longo do caminho
-- 31/07/2026 — Adicionei `graphology-types` como dependência direta, não listada
-  explicitamente na seção 3 do spec. É uma peer dependency obrigatória de
-  `graphology-shortest-path` (usada para tipar o grafo no TypeScript); sem ela o
-  build falha. Não é uma biblioteca nova de fato, é parte do ecossistema
-  `graphology` já escolhido.
-- 31/07/2026 — Criei `src/shared/types/index.ts` já na Fase 1, mesmo o roadmap não
-  citando esse arquivo explicitamente nela. A seção 6 do spec já lista esse
-  arquivo como parte da estrutura de pastas, e as funções stub de `storage.ts`
-  precisavam de tipos para terem assinaturas corretas. Não adiciona nenhuma
-  lógica de negócio antes da hora, só o contrato de dados.
-- 31/07/2026 — `App.tsx` foi movido para `src/app/App.tsx` (fora do padrão do
-  Vite, que cria em `src/App.tsx`), para bater com a estrutura da seção 6.
-  `main.tsx` foi ajustado para importar do novo caminho.
-- 31/07/2026 — Criei `src/features/admin/AdminHome.tsx`, arquivo não listado na
-  seção 6 do spec original. É uma tela-índice/menu do módulo admin — necessária
-  porque nenhuma das telas reais de admin (MapUpload, PoiEditor etc.) existe
-  ainda; sem ela, `/admin` não teria o que renderizar. Vai virar a "home" do
-  módulo admin conforme as fases seguintes forem adicionando as seções reais.
-- 31/07/2026 — O `role` no Zustand não é persistido (localStorage/sessionStorage)
-  entre recarregamentos de página. Se o navegador for atualizado dentro de
-  `/admin` ou `/passageiro`, o guard `RequireRole` manda de volta pro RoleGate,
-  exigindo escolher o papel de novo. Optei por isso porque simplifica o fluxo
-  de simulação (trocar de perfil sempre passa pela escolha explícita) e evita
-  side-effects de sincronizar papel entre localStorage e o restante da store
-  antes da hora. Se isso incomodar na prática, dá pra revisar depois.
-- 31/07/2026 — Criei `src/shared/lib/image.ts`, arquivo não listado na seção 6
-  original. Ficou separado de `MapUpload.tsx` porque é uma função utilitária
-  pura (ler arquivo → comprimir → dataURL), reaproveitável se algum dia outro
-  lugar do app precisar comprimir imagem (ex: ícone customizado de POI na Fase
-  4).
-- 31/07/2026 — MVP tem um único `MapImage`/`Floor` fixos: `storage.saveMap`
-  força `id: 'map-default'` independente do que for passado, e
-  `getDefaultFloor` sempre retorna/cria `floor-default`. Isso é intencional
-  (seção 9: "MVP usa sempre um único Floor fixo") — só vira múltiplos registros
-  se decidirmos implementar múltiplos andares no futuro (fora do MVP, seção
-  10).
+## O que foi feito na Fase 4
+- `src/shared/lib/id.ts`: `generateId()`, reutilizado por POIs e futuras
+  entidades (nós do grafo, QR, viagens, notificações).
+- `src/shared/lib/storage.ts`: `getPois`/`savePoi`/`deletePoi` implementados
+  (array em localStorage, chave `pois`).
+- `src/features/map/MapView.tsx`: adicionado `onMarkerClick`.
+- `src/features/admin/PoiFormModal.tsx`: bottom sheet de criar/editar local.
+- `src/features/admin/PoiEditor.tsx`: tela em `/admin/locais` — mapa com POIs,
+  botão "Adicionar local", lista abaixo do mapa (também clicável).
+- `src/app/routes.tsx` / `AdminHome.tsx`: rota `/admin/locais` linkada.
+- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — limpos.
+
+## Correções e melhorias aplicadas após teste do usuário (ainda Fase 4)
+Você testou a Fase 4 e reportou 3 problemas reais — todos corrigidos antes de
+seguir pra Fase 5:
+
+1. **Bug: o mapa (Leaflet) aparecia por cima do modal.** Causa: os controles
+   do Leaflet (botões de zoom) usam z-index até 800 por padrão, e o modal
+   estava em z-index 100. Corrigido criando `src/shared/lib/zIndex.ts` com
+   constantes centralizadas (`Z_INDEX.modal = 2000`) — qualquer modal futuro
+   deve usar essa constante em vez de um número solto, pra não repetir o bug.
+2. **Marcador no mapa só tinha cor, sem ícone.** `MapView.tsx` trocou
+   `L.circleMarker` por `L.marker` com `divIcon`, aceitando um novo campo
+   opcional `iconHtml` no `MapViewMarker` (HTML pré-renderizado pelo
+   chamador — o MapView continua genérico, sem saber o que é um POI). Criado
+   `src/shared/lib/poiIconHtml.tsx` com `renderPoiIconHtml()`, que usa
+   `renderToStaticMarkup` (react-dom/server) pra transformar o ícone
+   React/SVG em string HTML utilizável pelo Leaflet.
+3. **Pedido: categoria personalizada (nome + cor) além das 13 de fábrica, e
+   ícone customizado por local.** Mudanças:
+   - **DESVIO no modelo de dados:** `Poi.category`/`PoiCategory` eram uma
+     union fechada de 13 valores — viraram `string` livre. A union original
+     continua existindo, mas só internamente em `poiCategories.ts` (não
+     exportada, renomeada `BuiltinCategoryId`), usada apenas pra dar
+     segurança de tipo ao escrever o seed das 13 categorias de fábrica.
+   - Novo tipo `Category` em `shared/types/index.ts`: `{ id, label, color,
+     isCustom }`.
+   - `storage.ts`: `getCategories()` (mescla fábrica + personalizadas) e
+     `saveCustomCategory()` — personalizadas ficam em localStorage na chave
+     `categories:custom`.
+   - `PoiFormModal.tsx`: grid de categorias vem de `getCategories()`, com
+     botão "+ Nova categoria" (nome + `<input type="color">`).
+   - `PoiFormModal.tsx` ganhou upload de ícone customizado por local (campo
+     `Poi.iconUrl`, que já existia no modelo mas não tinha UI): usa
+     `loadAndCompressImage` (agora parametrizada com
+     `maxDimension`/`quality`/`outputFormat`) com `maxDimension: 128` e saída
+     em PNG. Se o POI tiver `iconUrl`, ele tem prioridade sobre o ícone da
+     categoria em todo lugar (marcador do mapa, lista, prévia no modal).
+   - `PoiCategoryIcon.tsx`: categorias sem ícone próprio caem num ícone
+     genérico (`FaLocationDot`).
+
+Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+avisos.
+
+**Nota sobre o tamanho do build:** o Vite avisa que o chunk final passou de
+500KB minificado (608KB / 187KB gzip), por causa do `react-dom/server` +
+Leaflet somados. Não é erro, é só informativo — não vou otimizar isso agora
+(MVP acadêmico, bundle size não é prioridade). Registrado como possível item
+da Fase 12 (Polimento): `import()` dinâmico do Leaflet/react-dom-server só
+quando as telas que os usam forem abertas.
+
+## Decisões tomadas ao longo do caminho (lista única, consolidada)
+- Adicionei `graphology-types` como dependência direta, não listada
+  explicitamente na seção 3 do spec. É peer dependency obrigatória de
+  `graphology-shortest-path` (usada para tipar o grafo); sem ela o build
+  falha. Não é uma biblioteca nova, é parte do ecossistema `graphology` já
+  escolhido.
+- Criei `src/shared/types/index.ts` já na Fase 1, mesmo o roadmap não citando
+  esse arquivo explicitamente nela — a seção 6 do spec já lista esse arquivo
+  como parte da estrutura de pastas, e os stubs de `storage.ts` precisavam de
+  tipos corretos. Não adianta lógica de negócio, só o contrato de dados.
+- `App.tsx` foi movido para `src/app/App.tsx` (fora do padrão do Vite, que
+  cria em `src/App.tsx`), para bater com a estrutura da seção 6. `main.tsx`
+  ajustado.
+- Criei `src/features/admin/AdminHome.tsx`, não listado na seção 6 original —
+  é a tela-índice/menu do módulo admin, necessária porque nenhuma das telas
+  reais de admin existia ainda quando a Fase 2 foi implementada.
+- O `role` no Zustand não é persistido entre recarregamentos de página. Se o
+  navegador recarregar dentro de `/admin` ou `/passageiro`, o guard
+  `RequireRole` manda de volta pro RoleGate. Escolhido para simplificar o
+  fluxo de simulação (troca de perfil sempre passa por escolha explícita).
+- Criei `src/shared/lib/image.ts`, não listado na seção 6 original — função
+  utilitária pura (ler arquivo → comprimir → dataURL), separada de
+  `MapUpload.tsx` porque acabou sendo reaproveitada depois pelo upload de
+  ícone de POI (Fase 4).
+- MVP tem um único `MapImage`/`Floor` fixos: `storage.saveMap` força
+  `id: 'map-default'`, e `getDefaultFloor` sempre retorna/cria
+  `floor-default`. Intencional (seção 9 do spec) — só vira múltiplos
+  registros se decidirmos implementar múltiplos andares no futuro (fora do
+  MVP, seção 10).
+- **DESVIO:** `Poi.nearestNodeId` era `string` obrigatório na seção 5
+  original e virou `nearestNodeId?: string` (opcional). Motivo: o roadmap
+  coloca a Fase 4 (criar POIs) antes da Fase 5 (criar o grafo) — o primeiro
+  POI criado não tem nó nenhum pra apontar ainda. Fica `undefined` até a
+  Fase 5 vincular (plano: vincular automaticamente cada POI ao nó mais
+  próximo, ou dar ao admin uma ação explícita — decisão final quando a
+  Fase 5 for implementada).
+- Criei `src/shared/lib/id.ts`, `src/shared/lib/zIndex.ts` e
+  `src/shared/lib/poiIconHtml.tsx` — pequenas adições utilitárias não listadas
+  na seção 6 original, todas de baixo risco (ver detalhes nas seções de cada
+  fase acima).
+- **DESVIO (revisão da Fase 4):** `PoiCategory` deixou de ser union fechada de
+  13 valores e virou `string` livre, com um novo tipo `Category` (`{id, label,
+  color, isCustom}`) pra suportar categorias personalizadas — ver seção
+  "Correções e melhorias" acima para o detalhe completo.
+- Para "Escolher ícone" (seção 2.1), a solução final (depois da revisão) é:
+  ícone automático por categoria como padrão, com opção de upload de ícone
+  customizado por local (`Poi.iconUrl`) sobrepondo o ícone padrão quando
+  presente. A primeira versão da Fase 4 tinha só o ícone automático; o upload
+  foi adicionado depois, a pedido do usuário.
 
 ## Problemas conhecidos / pendências
-- Renderização do Leaflet ainda não testada num navegador real (ver nota na
-  Fase 3 acima) — depende da validação manual do usuário.
-- As funções de domínio restantes em `storage.ts` (POIs, grafo, QR, viagens,
+- Renderização do Leaflet (mapa, marcadores com ícone, clique) validada só
+  parcialmente pelo usuário — a revisão pós-Fase 4 (z-index, ícone no
+  marcador, categorias personalizadas) ainda não foi testada no navegador,
+  só validada por tipo/build/lint neste ambiente.
+- `Poi.nearestNodeId` fica `undefined` em todo POI até a Fase 5 vincular o
+  grafo — esperado, não é bug.
+- Bundle final passou de 500KB minificado (aviso do Vite) — não bloqueante,
+  possível item de polimento na Fase 12 (ver nota acima).
+- Funções de domínio restantes em `storage.ts` (grafo, QR, viagens,
   notificações) seguem como stub — esperado até as fases correspondentes.
 
 ## Última atualização

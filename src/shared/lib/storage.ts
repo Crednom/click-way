@@ -17,6 +17,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type {
   AppNotification,
+  Category,
   Floor,
   GraphEdge,
   GraphNode,
@@ -27,6 +28,7 @@ import type {
   Sector,
   Trip,
 } from '../types';
+import { BUILTIN_CATEGORIES } from './poiCategories';
 
 // ---------------------------------------------------------------------------
 // IndexedDB — usado apenas para a imagem do mapa (pode passar de 5-10MB em base64,
@@ -133,19 +135,57 @@ export async function saveMap(map: MapImage): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Locais (POIs) — implementação chega na Fase 4 (Admin: locais).
+// Locais (POIs) — implementado na Fase 4.
 // ---------------------------------------------------------------------------
 
+const POIS_KEY = 'pois';
+
 export function getPois(): Poi[] {
-  throw new Error('storage.getPois: não implementado ainda (ver Fase 4 do roadmap)');
+  return readJson<Poi[]>(POIS_KEY, []);
 }
 
-export function savePoi(_poi: Poi): void {
-  throw new Error('storage.savePoi: não implementado ainda (ver Fase 4 do roadmap)');
+export function savePoi(poi: Poi): void {
+  const pois = getPois();
+  const index = pois.findIndex((existing) => existing.id === poi.id);
+  if (index >= 0) {
+    pois[index] = poi;
+  } else {
+    pois.push(poi);
+  }
+  writeJson(POIS_KEY, pois);
 }
 
-export function deletePoi(_poiId: string): void {
-  throw new Error('storage.deletePoi: não implementado ainda (ver Fase 4 do roadmap)');
+export function deletePoi(poiId: string): void {
+  const pois = getPois().filter((poi) => poi.id !== poiId);
+  writeJson(POIS_KEY, pois);
+}
+
+// ---------------------------------------------------------------------------
+// Categorias — as 13 "de fábrica" (poiCategories.ts) + as personalizadas
+// criadas pelo admin (nome + cor). Adicionado a pedido do usuário durante a
+// revisão da Fase 4 (não existia no spec original) — ver PROGRESS.md.
+// ---------------------------------------------------------------------------
+
+const CUSTOM_CATEGORIES_KEY = 'categories:custom';
+
+function getCustomCategories(): Category[] {
+  return readJson<Category[]>(CUSTOM_CATEGORIES_KEY, []);
+}
+
+/** Categorias de fábrica + personalizadas, prontas para exibir num seletor. */
+export function getCategories(): Category[] {
+  return [...BUILTIN_CATEGORIES, ...getCustomCategories()];
+}
+
+export function saveCustomCategory(category: Category): void {
+  const custom = getCustomCategories();
+  const index = custom.findIndex((existing) => existing.id === category.id);
+  if (index >= 0) {
+    custom[index] = category;
+  } else {
+    custom.push(category);
+  }
+  writeJson(CUSTOM_CATEGORIES_KEY, custom);
 }
 
 // ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import type { UserRole } from '../shared/types';
 import RoleGate from './RoleGate';
 import AdminHome from '../features/admin/AdminHome';
 import MapUpload from '../features/admin/MapUpload';
+import PoiEditor from '../features/admin/PoiEditor';
 import HomeScreen from '../features/passenger/HomeScreen';
 
 interface RequireRoleProps {
@@ -46,6 +47,14 @@ function AppRoutes() {
           element={
             <RequireRole expected="admin">
               <MapUpload />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/locais"
+          element={
+            <RequireRole expected="admin">
+              <PoiEditor />
             </RequireRole>
           }
         />

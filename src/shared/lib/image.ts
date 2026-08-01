@@ -1,9 +1,13 @@
 // Leitura e compressão de imagem (seção 9 do spec: "Comprimir/redimensionar a
 // imagem do mapa antes de salvar no IndexedDB"). Arquivo não estava listado
 // explicitamente na seção 6 — adição registrada no PROGRESS.md.
+//
+// Também reutilizado pelo upload de ícone customizado de POI (revisão da
+// Fase 4), com um `maxDimension` bem menor e saída em PNG (preserva
+// transparência, comum em ícones/logos).
 
-const MAX_DIMENSION = 2000;
-const JPEG_QUALITY = 0.85;
+const DEFAULT_MAX_DIMENSION = 2000;
+const DEFAULT_QUALITY = 0.85;
 
 export interface LoadedImage {
   dataUrl: string;
@@ -12,10 +16,17 @@ export interface LoadedImage {
 }
 
 /**
- * Lê um arquivo de imagem e, se ele passar de MAX_DIMENSION px no maior lado,
+ * Lê um arquivo de imagem e, se ele passar de `maxDimension` px no maior lado,
  * redimensiona proporcionalmente via canvas antes de gerar o data URL final.
  */
-export function loadAndCompressImage(file: File): Promise<LoadedImage> {
+export function loadAndCompressImage(
+  file: File,
+  options: { maxDimension?: number; quality?: number; outputFormat?: 'image/jpeg' | 'image/png' } = {},
+): Promise<LoadedImage> {
+  const maxDimension = options.maxDimension ?? DEFAULT_MAX_DIMENSION;
+  const quality = options.quality ?? DEFAULT_QUALITY;
+  const outputFormat = options.outputFormat ?? 'image/jpeg';
+
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -27,7 +38,7 @@ export function loadAndCompressImage(file: File): Promise<LoadedImage> {
       img.onerror = () => reject(new Error('O arquivo selecionado não é uma imagem válida.'));
 
       img.onload = () => {
-        const scaleFactor = Math.min(1, MAX_DIMENSION / Math.max(img.width, img.height));
+        const scaleFactor = Math.min(1, maxDimension / Math.max(img.width, img.height));
         const width = Math.round(img.width * scaleFactor);
         const height = Math.round(img.height * scaleFactor);
 
@@ -48,7 +59,7 @@ export function loadAndCompressImage(file: File): Promise<LoadedImage> {
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        resolve({ dataUrl: canvas.toDataURL('image/jpeg', JPEG_QUALITY), width, height });
+        resolve({ dataUrl: canvas.toDataURL(outputFormat, quality), width, height });
       };
 
       img.src = reader.result as string;

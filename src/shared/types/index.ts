@@ -32,30 +32,45 @@ export interface Point {
   yPct: number;
 }
 
-export type PoiCategory =
-  | 'banheiro'
-  | 'alimentacao'
-  | 'bilheteria'
-  | 'loja'
-  | 'caixa_eletronico'
-  | 'sala_espera'
-  | 'guarda_volumes'
-  | 'achados_e_perdidos'
-  | 'elevador'
-  | 'escada'
-  | 'escada_rolante'
-  | 'saida'
-  | 'plataforma';
+// Categoria de local. Era uma union fechada de 13 valores fixos; virou um id
+// de string livre porque tanto as 13 categorias "de fábrica" quanto as
+// personalizadas (criadas pelo admin — ver `Category` abaixo, adicionado na
+// revisão da Fase 4) circulam pelos mesmos campos (`Poi.category`,
+// `PoiFormModal`, `PoiCategoryIcon` etc.). A lista dos 13 nomes de fábrica
+// continua existindo, só que agora só internamente em poiCategories.ts (usada
+// pra dar segurança de tipo ao escrever o seed inicial, sem vazar a union
+// fechada pro resto do app).
+export type PoiCategory = string;
+
+// Categoria de local. As 13 "de fábrica" (PoiCategory acima) vêm prontas; o
+// admin também pode criar categorias personalizadas (nome + cor), guardadas
+// com `isCustom: true`. Adicionado a pedido do usuário durante a revisão da
+// Fase 4 — não existia no spec original. Ver PROGRESS.md.
+export interface Category {
+  id: string;
+  label: string;
+  color: string;
+  isCustom: boolean;
+}
 
 export interface Poi {
   id: string;
   floorId: string;
   name: string;
-  category: PoiCategory;
+  // DESVIO da seção 5 original do spec (era `category: PoiCategory`, union
+  // fechada): virou `string` para aceitar tanto as 13 categorias de fábrica
+  // quanto categorias personalizadas criadas pelo admin (`Category.id`).
+  // Ver PROGRESS.md.
+  category: string;
   position: Point;
   iconUrl?: string;
   description?: string;
-  nearestNodeId: string; // vínculo obrigatório com um nó do grafo
+  // DESVIO da seção 5 original do spec (era `nearestNodeId: string`, obrigatório):
+  // tornou-se opcional porque a Fase 4 (criação de POIs) roda antes da Fase 5
+  // (criação do grafo) no roadmap — não existe nó nenhum ainda quando o
+  // primeiro POI é criado. Fica undefined até a Fase 5 vincular. Decisão e
+  // justificativa completa registradas no PROGRESS.md.
+  nearestNodeId?: string;
 }
 
 export interface GraphNode {
