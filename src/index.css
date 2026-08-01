@@ -1,0 +1,40 @@
+/* Reset e base mobile-first (seção 8 do spec). Estilo real de cada tela
+   chega junto com a tela em suas respectivas fases do roadmap. */
+
+:root {
+  color-scheme: light;
+  --color-bg: #ffffff;
+  --color-text: #17181c;
+  --color-muted: #6b7280;
+  --color-accent: #2563eb;
+  --touch-target-min: 44px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font-family: inherit;
+  min-height: var(--touch-target-min);
+  min-width: var(--touch-target-min);
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
