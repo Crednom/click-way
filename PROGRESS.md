@@ -1,7 +1,7 @@
 # Progresso do Click Way
 
 ## Fase atual
-Fase 7 — Passageiro: busca e rota (tela inicial, busca por POI/plataforma, traçado da rota no mapa)
+Fase 8 — Navegação passo a passo (transformar o caminho do grafo em instruções textuais com distância real)
 
 ## Concluído
 - [x] Fase 1 — Setup do projeto
@@ -10,17 +10,19 @@ Fase 7 — Passageiro: busca e rota (tela inicial, busca por POI/plataforma, tra
 - [x] Fase 4 — Admin: locais
 - [x] Fase 5 — Admin: grafo
 - [x] Fase 6 — Roteamento (Dijkstra)
-- [ ] Fase 7 — Passageiro: busca e rota
+- [x] Fase 7 — Passageiro: busca e rota
 - [ ] Fase 8 — Navegação passo a passo
 - [ ] Fase 9 — QR Code
 - [ ] Fase 10 — Viagens
 - [ ] Fase 11 — Notificações
 - [ ] Fase 12 — Polimento
 
-> **Nota sobre este arquivo:** até a revisão da Fase 4, a seção "Decisões
-> tomadas ao longo do caminho" estava sendo reescrita inteira a cada fase
-> (bug de edição, não de código) e se repetia várias vezes no arquivo. Foi
-> consolidada numa lista única, no final do arquivo, nesta reescrita.
+> **Nota sobre este arquivo:** até a revisão da Fase 4, a seção de decisões
+> estava sendo reescrita inteira a cada fase (bug de edição, não de código) e
+> se repetia várias vezes no arquivo; foi consolidada então. Na Fase 7, o
+> mesmo tipo de bug de edição bagunçou a ordem cronológica das seções (o
+> conteúdo estava certo, só fora de ordem). Esta é uma reescrita completa,
+> nesta ordem, sem esse problema — nenhum conteúdo foi perdido.
 
 ## O que foi feito na Fase 1
 - Projeto criado com `npm create vite@latest -- --template react-ts`.
@@ -51,7 +53,8 @@ Fase 7 — Passageiro: busca e rota (tela inicial, busca por POI/plataforma, tra
 - `src/app/RoleGate.tsx`: tela inicial com dois cartões grandes para escolher
   "Sou passageiro" ou "Sou administrador".
 - `src/shared/components/AppHeader.tsx`: cabeçalho com botão "Trocar perfil".
-- `src/features/passenger/HomeScreen.tsx`: placeholder do módulo Passageiro.
+- `src/features/passenger/HomeScreen.tsx`: placeholder do módulo Passageiro
+  (substituído pela tela real na Fase 7).
 - `src/features/admin/AdminHome.tsx`: menu do módulo Admin.
 - `src/app/routes.tsx`: rotas `/`, `/admin`, `/passageiro`, com guard
   `RequireRole`.
@@ -84,31 +87,7 @@ Fase 7 — Passageiro: busca e rota (tela inicial, busca por POI/plataforma, tra
 - `src/app/routes.tsx` / `AdminHome.tsx`: rota `/admin/locais` linkada.
 - Validado com `npx tsc -b`, `npm run build` e `npm run lint` — limpos.
 
-## O que foi feito na Fase 6
-- `src/features/routing/calculateRoute.ts` (novo): monta um grafo
-  `graphology` a partir de `getGraphNodes()`/`getGraphEdges()` e calcula o
-  menor caminho entre dois nós com `dijkstra.bidirectional` (do namespace
-  `dijkstra` de `graphology-shortest-path` — **atenção documentada no próprio
-  código:** esse pacote também exporta um `bidirectional` solto na raiz do
-  módulo, mas é a versão sem peso (BFS); usar aquele por engano dá uma rota
-  "com menos saltos" em vez de "mais curta de verdade", sem nenhum erro de
-  tipo ou runtime pra avisar). Retorna `{ nodeIds, totalWeight }` ou `null` se
-  não houver caminho entre os nós (grafo desconectado nesse trecho).
-- **Esta fase não tem tela própria** — é só o motor de cálculo, consumido a
-  partir da Fase 7 (busca do passageiro) e da Fase 8 (instruções passo a
-  passo).
-- **Validação real, não só tipo/build:** diferente das fases anteriores (que
-  dependem de Leaflet/DOM, que não consigo rodar neste ambiente), o
-  roteamento é lógica pura — dava pra testar de verdade. Rodei um teste à
-  parte (não faz parte do projeto, foi só verificação) reproduzindo a mesma
-  lógica com dados inventados, cobrindo: (1) escolher o caminho de menor peso
-  total mesmo quando não é o de menos "saltos"/mais direto geometricamente,
-  (2) retornar `null` para nós sem conexão entre si, (3) origem igual ao
-  destino. Todos passaram.
-- Validado também com `npx tsc -b`, `npm run build` e `npm run lint` — 0
-  erros, 0 avisos.
-
-
+## Correções e melhorias aplicadas após teste do usuário (ainda Fase 4)
 Você testou a Fase 4 e reportou 3 problemas reais — todos corrigidos antes de
 seguir pra Fase 5:
 
@@ -151,11 +130,37 @@ Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
 avisos.
 
 **Nota sobre o tamanho do build:** o Vite avisa que o chunk final passou de
-500KB minificado (608KB / 187KB gzip), por causa do `react-dom/server` +
-Leaflet somados. Não é erro, é só informativo — não vou otimizar isso agora
-(MVP acadêmico, bundle size não é prioridade). Registrado como possível item
-da Fase 12 (Polimento): `import()` dinâmico do Leaflet/react-dom-server só
-quando as telas que os usam forem abertas.
+500KB minificado, por causa do `react-dom/server` + Leaflet somados. Não é
+erro, é só informativo — não vou otimizar isso agora (MVP acadêmico, bundle
+size não é prioridade). Registrado como possível item da Fase 12
+(Polimento): `import()` dinâmico do Leaflet/react-dom-server só quando as
+telas que os usam forem abertas.
+
+## Melhoria aplicada após novo teste do usuário (ainda Fase 4)
+Nome do local só aparecia num tooltip de hover — ruim em touch/mobile. Pedido:
+nome sempre visível ao lado do ícone (como no Google Maps), cuidando pra não
+poluir visualmente quando dois pontos estão próximos.
+
+`src/features/map/MapView.tsx` reescrito:
+- Removido `bindTooltip` (hover). O nome agora faz parte do próprio
+  `L.divIcon` do marcador — um "pill" branco ao lado do círculo colorido,
+  sempre visível, sem depender de hover/toque.
+- Anti-colisão: a cada redesenho (incluindo a cada zoom/arraste — evento
+  `zoomend moveend` do Leaflet), cada marcador calcula sua posição em pixels
+  de tela (`map.latLngToContainerPoint`). Um nome só é desenhado se estiver a
+  pelo menos `MIN_LABEL_SPACING_PX` (68px) de distância de outro nome já
+  desenhado nessa mesma passada; caso contrário, mostra só o ícone (sem
+  nome). Isso precisa ser recalculado a cada zoom porque a distância em
+  pixels entre dois pontos do mapa muda conforme o zoom (dois POIs que
+  colidem zoomado longe podem não colidir mais ao aproximar).
+- A ordem de prioridade de quem "ganha" o nome quando há colisão é a ordem
+  do array `markers` recebido (primeiro a desenhar, primeiro a garantir o
+  nome). Não há prioridade por categoria/importância — se isso importar no
+  futuro (ex: sempre priorizar plataformas), dá pra ordenar o array antes de
+  passar pro MapView.
+
+Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+avisos.
 
 ## O que foi feito na Fase 5
 - `src/shared/lib/storage.ts`: `getGraphNodes`/`saveGraphNode`/`getGraphEdges`/
@@ -189,33 +194,70 @@ quando as telas que os usam forem abertas.
   (criar nó, conectar, editar peso, excluir com cascata) num navegador de
   verdade neste ambiente — depende da validação manual.
 
+## O que foi feito na Fase 6
+- `src/features/routing/calculateRoute.ts` (novo): monta um grafo
+  `graphology` a partir de `getGraphNodes()`/`getGraphEdges()` e calcula o
+  menor caminho entre dois nós com `dijkstra.bidirectional` (do namespace
+  `dijkstra` de `graphology-shortest-path` — **atenção documentada no próprio
+  código:** esse pacote também exporta um `bidirectional` solto na raiz do
+  módulo, mas é a versão sem peso (BFS); usar aquele por engano dá uma rota
+  "com menos saltos" em vez de "mais curta de verdade", sem nenhum erro de
+  tipo ou runtime pra avisar). Retorna `{ nodeIds, totalWeight }` ou `null` se
+  não houver caminho entre os nós (grafo desconectado nesse trecho).
+- **Esta fase não tem tela própria** — é só o motor de cálculo, consumido a
+  partir da Fase 7 (busca do passageiro) e da Fase 8 (instruções passo a
+  passo).
+- **Validação real, não só tipo/build:** diferente das fases anteriores (que
+  dependem de Leaflet/DOM, que não consigo rodar neste ambiente), o
+  roteamento é lógica pura — dava pra testar de verdade. Rodei um teste à
+  parte (não faz parte do projeto, foi só verificação) reproduzindo a mesma
+  lógica com dados inventados, cobrindo: (1) escolher o caminho de menor peso
+  total mesmo quando não é o de menos "saltos"/mais direto geometricamente,
+  (2) retornar `null` para nós sem conexão entre si, (3) origem igual ao
+  destino. Todos passaram.
+- Validado também com `npx tsc -b`, `npm run build` e `npm run lint` — 0
+  erros, 0 avisos.
 
-Nome do local só aparecia num tooltip de hover — ruim em touch/mobile. Pedido:
-nome sempre visível ao lado do ícone (como no Google Maps), cuidando pra não
-poluir visualmente quando dois pontos estão próximos.
+## O que foi feito na Fase 7
+- `src/shared/lib/poiNodeLinking.ts`: `findNearestNode` generalizada (antes só
+  aceitava POI, agora aceita qualquer `Point`) e exportada — reaproveitada
+  aqui pra achar o nó mais próximo do toque manual do passageiro no mapa.
+- `src/features/passenger/SearchBar.tsx` (novo): campo de busca + botão de QR
+  Code. O botão já existe visualmente (seção 2.2 pede isso na tela inicial),
+  mas não faz nada ainda — só um `title="Em breve"` — porque a leitura de QR é
+  a Fase 9. Ver decisão abaixo.
+- `src/features/passenger/SearchResultsList.tsx` (novo): lista de POIs que
+  batem com a busca, cada item tocável pra virar o destino.
+- `src/features/passenger/HomeScreen.tsx` (reescrita): duas visões dentro da
+  mesma tela — (1) busca (campo + chips de categoria + resultados) e (2) rota
+  (mapa com marcador de origem/destino, linha do caminho, distância
+  aproximada). Recalcula a rota automaticamente (`useEffect`) sempre que
+  destino, localização atual ou o grafo mudam.
+- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+  avisos. Ressalva de sempre: interação real no mapa (busca, toque pra
+  indicar localização, linha da rota aparecendo) não testada num navegador de
+  verdade neste ambiente.
 
-`src/features/map/MapView.tsx` reescrito:
-- Removido `bindTooltip` (hover). O nome agora faz parte do próprio
-  `L.divIcon` do marcador — um "pill" branco ao lado do círculo colorido,
-  sempre visível, sem depender de hover/toque.
-- Anti-colisão: a cada redesenho (incluindo a cada zoom/arraste — evento
-  `zoomend moveend` do Leaflet), cada marcador calcula sua posição em pixels
-  de tela (`map.latLngToContainerPoint`). Um nome só é desenhado se estiver a
-  pelo menos `MIN_LABEL_SPACING_PX` (68px) de distância de outro nome já
-  desenhado nessa mesma passada; caso contrário, mostra só o ícone (sem
-  nome). Isso precisa ser recalculado a cada zoom porque a distância em
-  pixels entre dois pontos do mapa muda conforme o zoom (dois POIs que
-  colidem zoomado longe podem não colidir mais ao aproximar).
-- A ordem de prioridade de quem "ganha" o nome quando há colisão é a ordem
-  do array `markers` recebido (primeiro a desenhar, primeiro a garantir o
-  nome). Não há prioridade por categoria/importância — se isso importar no
-  futuro (ex: sempre priorizar plataformas), dá pra ordenar o array antes de
-  passar pro MapView.
+**Duas decisões importantes desta fase:**
 
-Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
-avisos.
+1. **Localização manual temporária.** Calcular rota exige um ponto de
+   partida, mas o QR Code (que dá isso automaticamente) só chega na Fase 9.
+   Solução: o passageiro toca no mapa pra indicar "estou aqui"
+   (`originPoint`), e isso vira o ponto de partida do Dijkstra (via
+   `findNearestNode`). Plano para a Fase 9: o QR Code deve preencher esse
+   mesmo `originPoint` automaticamente — a ideia é manter o toque manual como
+   alternativa (ex: passageiro sem como escanear o código), não substituí-lo.
+2. **Categorias de busca = categorias reais dos POIs.** O documento original
+   descrevia uma taxonomia de busca fixa e separada ("Serviços: Banheiros,
+   Alimentação, Compras, Embarque, Atendimento, Emergência"), diferente das
+   13 categorias de POI do admin. Em vez de criar essa segunda taxonomia
+   paralela, os chips de categoria da busca usam `getCategories()` — as
+   mesmas categorias (de fábrica + personalizadas) que o admin já cadastrou
+   na Fase 4. Evita um filtro de busca que não bate com o que existe de
+   verdade no mapa, e como categorias já são livres desde a revisão da Fase
+   4, o admin pode criar "Emergência" como categoria própria se quiser.
 
-
+## Decisões tomadas ao longo do caminho (lista única, consolidada)
 - Adicionei `graphology-types` como dependência direta, não listada
   explicitamente na seção 3 do spec. É peer dependency obrigatória de
   `graphology-shortest-path` (usada para tipar o grafo); sem ela o build
@@ -247,10 +289,8 @@ avisos.
 - **DESVIO:** `Poi.nearestNodeId` era `string` obrigatório na seção 5
   original e virou `nearestNodeId?: string` (opcional). Motivo: o roadmap
   coloca a Fase 4 (criar POIs) antes da Fase 5 (criar o grafo) — o primeiro
-  POI criado não tem nó nenhum pra apontar ainda. Fica `undefined` até a
-  Fase 5 vincular (plano: vincular automaticamente cada POI ao nó mais
-  próximo, ou dar ao admin uma ação explícita — decisão final quando a
-  Fase 5 for implementada).
+  POI criado não tem nó nenhum pra apontar ainda. Resolvido na Fase 5 com
+  `relinkAllPois()` (vínculo automático) — ver "O que foi feito na Fase 5".
 - Criei `src/shared/lib/id.ts`, `src/shared/lib/zIndex.ts` e
   `src/shared/lib/poiIconHtml.tsx` — pequenas adições utilitárias não listadas
   na seção 6 original, todas de baixo risco (ver detalhes nas seções de cada
@@ -264,25 +304,25 @@ avisos.
   customizado por local (`Poi.iconUrl`) sobrepondo o ícone padrão quando
   presente. A primeira versão da Fase 4 tinha só o ícone automático; o upload
   foi adicionado depois, a pedido do usuário.
+- Criei `src/shared/lib/poiNodeLinking.ts` na Fase 5 (não listado na seção 6
+  original) — resolve o desvio do `nearestNodeId` acima.
+- **DESVIO (Fase 7):** localização do passageiro é manual (toque no mapa) até
+  a Fase 9 implementar QR Code — ver "Duas decisões importantes desta fase"
+  na seção da Fase 7.
+- **DESVIO (Fase 7):** categorias de busca do passageiro usam as mesmas
+  categorias do admin (`getCategories()`), não a taxonomia fixa do documento
+  original — ver mesma seção acima.
 
 ## Problemas conhecidos / pendências
-- Interação do grafo (criar nó, conectar, editar peso, excluir com cascata)
-  ainda não testada no navegador por você — validada só por tipo/build/lint
-  neste ambiente.
-- `Poi.nearestNodeId` fica `undefined` só enquanto não existir nenhum nó de
-  grafo — assim que o primeiro nó for criado, `relinkAllPois()` vincula todo
-  POI automaticamente. Não é mais uma pendência em aberto, é o comportamento
-  esperado (ver "O que foi feito na Fase 5").
+- Interação com o mapa nas Fases 5-7 (grafo, busca/rota do passageiro) ainda
+  não testada no navegador por você — validada só por tipo/build/lint neste
+  ambiente.
 - Bundle final passou de 500KB minificado (aviso do Vite) — não bloqueante,
-  possível item de polimento na Fase 12 (ver nota da Fase 4).
+  possível item de polimento na Fase 12.
 - Funções de domínio restantes em `storage.ts` (QR, viagens, notificações)
   seguem como stub — esperado até as fases correspondentes.
-- `Poi.nearestNodeId` fica `undefined` em todo POI até a Fase 5 vincular o
-  grafo — esperado, não é bug.
-- Bundle final passou de 500KB minificado (aviso do Vite) — não bloqueante,
-  possível item de polimento na Fase 12 (ver nota acima).
-- Funções de domínio restantes em `storage.ts` (grafo, QR, viagens,
-  notificações) seguem como stub — esperado até as fases correspondentes.
+- O botão de QR Code na tela do passageiro é só visual por enquanto (Fase 9
+  implementa a leitura de verdade).
 
 ## Última atualização
 31/07/2026

@@ -7,13 +7,14 @@
 
 import { getPois, getGraphNodes, savePoi } from './storage';
 import { percentDistance } from './coordinates';
-import type { GraphNode, Poi } from '../types';
+import type { GraphNode, Point } from '../types';
 
-function findNearestNode(poi: Poi, nodes: GraphNode[]): GraphNode | undefined {
+/** Encontra o nó do grafo mais próximo de um ponto (percentual) qualquer. */
+export function findNearestNode(point: Point, nodes: GraphNode[]): GraphNode | undefined {
   let nearest: GraphNode | undefined;
   let nearestDistance = Infinity;
   for (const node of nodes) {
-    const distance = percentDistance(poi.position, node.position);
+    const distance = percentDistance(point, node.position);
     if (distance < nearestDistance) {
       nearestDistance = distance;
       nearest = node;
@@ -32,7 +33,7 @@ export function relinkAllPois(): void {
   const pois = getPois();
 
   for (const poi of pois) {
-    const nearest = nodes.length > 0 ? findNearestNode(poi, nodes) : undefined;
+    const nearest = nodes.length > 0 ? findNearestNode(poi.position, nodes) : undefined;
     const nearestNodeId = nearest?.id;
     if (poi.nearestNodeId !== nearestNodeId) {
       savePoi({ ...poi, nearestNodeId });
