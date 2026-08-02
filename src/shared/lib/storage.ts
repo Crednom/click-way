@@ -189,37 +189,66 @@ export function saveCustomCategory(category: Category): void {
 }
 
 // ---------------------------------------------------------------------------
-// Grafo (nós e arestas) — implementação chega na Fase 5 (Admin: grafo).
+// Grafo (nós e arestas) — implementado na Fase 5.
 // ---------------------------------------------------------------------------
 
+const GRAPH_NODES_KEY = 'graphNodes';
+const GRAPH_EDGES_KEY = 'graphEdges';
+
 export function getGraphNodes(): GraphNode[] {
-  throw new Error(
-    'storage.getGraphNodes: não implementado ainda (ver Fase 5 do roadmap)',
-  );
+  return readJson<GraphNode[]>(GRAPH_NODES_KEY, []);
 }
 
-export function saveGraphNode(_node: GraphNode): void {
-  throw new Error(
-    'storage.saveGraphNode: não implementado ainda (ver Fase 5 do roadmap)',
+export function saveGraphNode(node: GraphNode): void {
+  const nodes = getGraphNodes();
+  const index = nodes.findIndex((existing) => existing.id === node.id);
+  if (index >= 0) {
+    nodes[index] = node;
+  } else {
+    nodes.push(node);
+  }
+  writeJson(GRAPH_NODES_KEY, nodes);
+}
+
+/**
+ * Remove um nó e faz a limpeza em cascata: apaga as arestas que o usavam e
+ * desvincula (`nearestNodeId = undefined`) qualquer POI que apontava pra ele.
+ * Não estava nos stubs originais da Fase 1 — adição da Fase 5, documentada no
+ * PROGRESS.md.
+ */
+export function deleteGraphNode(nodeId: string): void {
+  const nodes = getGraphNodes().filter((node) => node.id !== nodeId);
+  writeJson(GRAPH_NODES_KEY, nodes);
+
+  const edges = getGraphEdges().filter(
+    (edge) => edge.fromNodeId !== nodeId && edge.toNodeId !== nodeId,
   );
+  writeJson(GRAPH_EDGES_KEY, edges);
+
+  const pois = getPois().map((poi) =>
+    poi.nearestNodeId === nodeId ? { ...poi, nearestNodeId: undefined } : poi,
+  );
+  writeJson(POIS_KEY, pois);
 }
 
 export function getGraphEdges(): GraphEdge[] {
-  throw new Error(
-    'storage.getGraphEdges: não implementado ainda (ver Fase 5 do roadmap)',
-  );
+  return readJson<GraphEdge[]>(GRAPH_EDGES_KEY, []);
 }
 
-export function saveGraphEdge(_edge: GraphEdge): void {
-  throw new Error(
-    'storage.saveGraphEdge: não implementado ainda (ver Fase 5 do roadmap)',
-  );
+export function saveGraphEdge(edge: GraphEdge): void {
+  const edges = getGraphEdges();
+  const index = edges.findIndex((existing) => existing.id === edge.id);
+  if (index >= 0) {
+    edges[index] = edge;
+  } else {
+    edges.push(edge);
+  }
+  writeJson(GRAPH_EDGES_KEY, edges);
 }
 
-export function deleteGraphEdge(_edgeId: string): void {
-  throw new Error(
-    'storage.deleteGraphEdge: não implementado ainda (ver Fase 5 do roadmap)',
-  );
+export function deleteGraphEdge(edgeId: string): void {
+  const edges = getGraphEdges().filter((edge) => edge.id !== edgeId);
+  writeJson(GRAPH_EDGES_KEY, edges);
 }
 
 // ---------------------------------------------------------------------------

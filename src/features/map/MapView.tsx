@@ -32,13 +32,22 @@ export interface MapViewMarker {
   iconHtml?: string;
 }
 
+export interface MapViewLine {
+  id: string;
+  from: Point;
+  to: Point;
+  color?: string;
+}
+
 interface MapViewProps {
   imageDataUrl: string;
   width: number;
   height: number;
   markers?: MapViewMarker[];
+  lines?: MapViewLine[];
   onMapClick?: (point: Point) => void;
   onMarkerClick?: (markerId: string) => void;
+  onLineClick?: (lineId: string) => void;
   heightPx?: number;
 }
 
@@ -92,13 +101,16 @@ function MapView({
   width,
   height,
   markers = [],
+  lines = [],
   onMapClick,
   onMarkerClick,
+  onLineClick,
   heightPx = 420,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const linesLayerRef = useRef<L.LayerGroup | null>(null);
 
   // Refs para os callbacks/dados "mais recentes": evita recriar o mapa ou
   // registrar handlers novos só porque o pai passou uma nova referência entre
@@ -107,6 +119,8 @@ function MapView({
   onMapClickRef.current = onMapClick;
   const onMarkerClickRef = useRef(onMarkerClick);
   onMarkerClickRef.current = onMarkerClick;
+  const onLineClickRef = useRef(onLineClick);
+  onLineClickRef.current = onLineClick;
   const markersRef = useRef(markers);
   markersRef.current = markers;
   const redrawMarkersRef = useRef<() => void>(() => {});
@@ -137,6 +151,8 @@ function MapView({
 
     const markersLayer = L.layerGroup().addTo(map);
     markersLayerRef.current = markersLayer;
+    const linesLayer = L.layerGroup().addTo(map);
+    linesLayerRef.current = linesLayer;
     mapRef.current = map;
 
     // Redesenha todos os marcadores, decidindo (por proximidade em pixels de
@@ -179,8 +195,31 @@ function MapView({
       map.remove();
       mapRef.current = null;
       markersLayerRef.current = null;
+      linesLayerRef.current = null;
     };
   }, [imageDataUrl, width, height]);
+
+  // Linhas (arestas do grafo, Fase 5) não precisam de lógica de zoom/colisão
+  // como os marcadores — só redesenha quando a lista muda.
+  useEffect(() => {
+    const layer = linesLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    lines.forEach((line) => {
+      const fromLatLng = percentToLatLng(line.from, width, height);
+      const toLatLng = percentToLatLng(line.to, width, height);
+      const polyline = L.polyline([fromLatLng, toLatLng], {
+        color: line.color ?? '#475569',
+        weight: 4,
+        opacity: 0.85,
+      });
+      polyline.on('click', (event: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(event);
+        onLineClickRef.current?.(line.id);
+      });
+      polyline.addTo(layer);
+    });
+  }, [lines, width, height]);
 
   // Quando a lista de markers muda (POIs criados/editados/excluídos), o
   // conteúdo de markersRef já foi atualizado acima (fora do efeito) — só

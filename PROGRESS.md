@@ -1,14 +1,14 @@
 # Progresso do Click Way
 
 ## Fase atual
-Fase 5 — Admin: grafo (tela própria, criar nós, criar/editar/remover arestas com peso, integração graphology)
+Fase 6 — Roteamento (Dijkstra): calculateRoute.ts com graphology-shortest-path, conversão de custo para distância real via escala
 
 ## Concluído
 - [x] Fase 1 — Setup do projeto
 - [x] Fase 2 — Base de navegação
 - [x] Fase 3 — Admin: mapa e escala
 - [x] Fase 4 — Admin: locais
-- [ ] Fase 5 — Admin: grafo
+- [x] Fase 5 — Admin: grafo
 - [ ] Fase 6 — Roteamento (Dijkstra)
 - [ ] Fase 7 — Passageiro: busca e rota
 - [ ] Fase 8 — Navegação passo a passo
@@ -133,7 +133,39 @@ Leaflet somados. Não é erro, é só informativo — não vou otimizar isso ago
 da Fase 12 (Polimento): `import()` dinâmico do Leaflet/react-dom-server só
 quando as telas que os usam forem abertas.
 
-## Melhoria aplicada após novo teste do usuário (ainda Fase 4)
+## O que foi feito na Fase 5
+- `src/shared/lib/storage.ts`: `getGraphNodes`/`saveGraphNode`/`getGraphEdges`/
+  `saveGraphEdge`/`deleteGraphEdge` implementados (localStorage, chaves
+  `graphNodes`/`graphEdges`). Adicionado também `deleteGraphNode` (não estava
+  nos stubs originais da Fase 1) — remove o nó, e em cascata apaga as arestas
+  que o usavam e desvincula (`nearestNodeId = undefined`) qualquer POI que
+  apontava pra ele.
+- **Pendência da Fase 4 resolvida:** `src/shared/lib/poiNodeLinking.ts`
+  (novo) — `relinkAllPois()` recalcula o `nearestNodeId` de todo POI pelo nó
+  de grafo mais próximo (distância percentual, `coordinates.percentDistance`).
+  Chamada automaticamente sempre que um nó é criado ou removido em
+  `GraphEditorView.tsx` — não é uma ação manual do admin, fica sempre
+  consistente sozinho.
+- `src/features/map/MapView.tsx`: adicionado suporte a `lines`/`onLineClick`
+  (arestas desenhadas como `L.polyline`), mantendo o componente genérico —
+  reaproveitado sem tocar na lógica de marcadores/anti-colisão de nomes.
+- `src/features/graph/EdgeWeightForm.tsx` (novo): painel de criar/editar
+  aresta — peso (com sugestão calculada pela escala, se configurada) e tipo
+  (corredor/escada/escada rolante/elevador).
+- `src/features/graph/GraphEditorView.tsx` (novo): tela em `/admin/grafo` —
+  dois modos alternáveis ("Adicionar nó" / "Conectar nós"); tocar num nó em
+  modo conexão seleciona-o (destaca na cor do admin), tocar num segundo nó
+  abre o formulário de peso (criando ou editando, se já existir aresta entre
+  os dois); tocar numa aresta (linha) também abre o formulário para editar;
+  tocar num nó em modo idle abre confirmação de exclusão (cascata explicada
+  acima).
+- `src/app/routes.tsx` / `AdminHome.tsx`: rota `/admin/grafo` linkada.
+- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+  avisos. Mesma ressalva de sempre: sem como testar a interação real no mapa
+  (criar nó, conectar, editar peso, excluir com cascata) num navegador de
+  verdade neste ambiente — depende da validação manual.
+
+
 Nome do local só aparecia num tooltip de hover — ruim em touch/mobile. Pedido:
 nome sempre visível ao lado do ícone (como no Google Maps), cuidando pra não
 poluir visualmente quando dois pontos estão próximos.
@@ -210,8 +242,17 @@ avisos.
   foi adicionado depois, a pedido do usuário.
 
 ## Problemas conhecidos / pendências
-- A revisão dos nomes sempre visíveis + anti-colisão ainda não foi testada no
-  navegador por você — validada só por tipo/build/lint neste ambiente.
+- Interação do grafo (criar nó, conectar, editar peso, excluir com cascata)
+  ainda não testada no navegador por você — validada só por tipo/build/lint
+  neste ambiente.
+- `Poi.nearestNodeId` fica `undefined` só enquanto não existir nenhum nó de
+  grafo — assim que o primeiro nó for criado, `relinkAllPois()` vincula todo
+  POI automaticamente. Não é mais uma pendência em aberto, é o comportamento
+  esperado (ver "O que foi feito na Fase 5").
+- Bundle final passou de 500KB minificado (aviso do Vite) — não bloqueante,
+  possível item de polimento na Fase 12 (ver nota da Fase 4).
+- Funções de domínio restantes em `storage.ts` (QR, viagens, notificações)
+  seguem como stub — esperado até as fases correspondentes.
 - `Poi.nearestNodeId` fica `undefined` em todo POI até a Fase 5 vincular o
   grafo — esperado, não é bug.
 - Bundle final passou de 500KB minificado (aviso do Vite) — não bloqueante,

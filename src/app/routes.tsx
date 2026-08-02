@@ -14,6 +14,7 @@ import RoleGate from './RoleGate';
 import AdminHome from '../features/admin/AdminHome';
 import MapUpload from '../features/admin/MapUpload';
 import PoiEditor from '../features/admin/PoiEditor';
+import GraphEditorView from '../features/graph/GraphEditorView';
 import HomeScreen from '../features/passenger/HomeScreen';
 
 interface RequireRoleProps {
@@ -55,6 +56,14 @@ function AppRoutes() {
           element={
             <RequireRole expected="admin">
               <PoiEditor />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/grafo"
+          element={
+            <RequireRole expected="admin">
+              <GraphEditorView />
             </RequireRole>
           }
         />
