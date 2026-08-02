@@ -48,7 +48,7 @@ interface MapViewProps {
   onMapClick?: (point: Point) => void;
   onMarkerClick?: (markerId: string) => void;
   onLineClick?: (lineId: string) => void;
-  heightPx?: number;
+  heightPx?: number | string;
 }
 
 // Distância mínima (em pixels de tela) entre dois marcadores para que ambos

@@ -257,7 +257,59 @@ avisos.
    verdade no mapa, e como categorias já são livres desde a revisão da Fase
    4, o admin pode criar "Emergência" como categoria própria se quiser.
 
-## Decisões tomadas ao longo do caminho (lista única, consolidada)
+## Correções aplicadas após teste do usuário (ainda Fase 7)
+Você testou a Fase 7 e trouxe dois pontos, um de UX e um técnico importante:
+
+1. **Mapa só aparecia depois de escolher um destino.** `HomeScreen.tsx`
+   reescrito: o mapa agora fica **sempre visível**, ocupando a tela toda
+   abaixo do cabeçalho. Busca, chips de categoria, resultados e o card de
+   rota viram painéis flutuantes por cima do mapa (novo tier
+   `Z_INDEX.overlay = 1000` em `zIndex.ts`, acima dos controles do Leaflet
+   e abaixo de modais) — estilo Google Maps, igual ao print de referência do
+   documento original. `MapView.tsx`: `heightPx` agora aceita `number | string`
+   (usado como `"100%"` aqui, pra preencher o espaço flexível do pai).
+2. **A rota não saía do ponto exato — só do nó mais próximo.** Isso é um
+   problema real de design de roteamento indoor, não um bug pequeno.
+   `calculateRoute.ts` foi reescrito:
+   - Antes: `calculateRoute(fromNodeId, toNodeId)` — calculava entre nós.
+   - Agora: `calculateRoute(fromPoint, toPoint)` — recebe pontos geométricos
+     quaisquer (o toque do passageiro, a posição exata do POI) e encaixa
+     cada um na **aresta mais próxima** via projeção perpendicular sobre o
+     segmento (`projectPointOnSegment`), não no nó mais próximo. Um nó
+     virtual é inserido nesse ponto projetado (só para aquele cálculo, nunca
+     salvo no grafo), dividindo o peso da aresta original proporcionalmente
+     à posição do ponto nela. Caso especial: se origem e destino caem na
+     mesma aresta, calcula direto pela proporção do peso da aresta entre os
+     dois `t`, sem precisar do resto do grafo.
+   - Essa é a abordagem padrão de apps de navegação reais (Google Maps,
+     Waze, OSRM chamam isso de "snap to road/edge") — mais precisa que
+     adicionar pontos intermediários manualmente ou automaticamente ao
+     longo das arestas (a alternativa que você tinha cogitado), e não exige
+     nenhum trabalho extra do admin nem infla o grafo salvo.
+   - `RouteResult` mudou de `{ nodeIds, totalWeight }` para
+     `{ points, totalDistance, nodeIds }` — `points` já vem pronto pra
+     desenhar (inclui o ponto real de origem/destino nas pontas), sem a
+     `HomeScreen` precisar mais mapear ids de nó pra posição.
+   - `Poi.nearestNodeId`/`relinkAllPois()` (Fase 5) **continuam existindo**,
+     mas não são mais usados pelo cálculo de rota em si — o cálculo agora
+     usa a posição real do POI (`poi.position`) diretamente. Mantidos porque
+     ainda são úteis pra outras coisas (ex: o admin identificar POIs sem
+     nenhum caminho próximo).
+   - **Validação real:** essa lógica é geometria pura, testável fora do
+     navegador. Rodei 3 testes à parte (não fazem parte do projeto):
+     (1) projeção perpendicular cai no ponto certo do corredor; (2) origem e
+     destino na mesma aresta — confirmei que o caso especial dá o resultado
+     correto (peso proporcional ao trecho real, ~50 de uma aresta de 100),
+     enquanto a via genérica pelo grafo (sem o caso especial) dá um valor
+     inflado (~90, porque teria que ir até um nó e voltar) — foi assim que
+     descobri que o caso especial era necessário, não só uma otimização;
+     (3) origem e destino em arestas diferentes de um corredor em L,
+     confirmando que o caminho passa pelo nó compartilhado com o peso certo.
+
+Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+avisos.
+
+
 - Adicionei `graphology-types` como dependência direta, não listada
   explicitamente na seção 3 do spec. É peer dependency obrigatória de
   `graphology-shortest-path` (usada para tipar o grafo); sem ela o build
@@ -314,9 +366,11 @@ avisos.
   original — ver mesma seção acima.
 
 ## Problemas conhecidos / pendências
-- Interação com o mapa nas Fases 5-7 (grafo, busca/rota do passageiro) ainda
-  não testada no navegador por você — validada só por tipo/build/lint neste
-  ambiente.
+- A correção do mapa sempre visível e do encaixe na aresta ainda não foi
+  testada por você no navegador — validei a geometria/roteamento com testes
+  reais fora do projeto (ver "Correções aplicadas" acima), mas a parte visual
+  (painéis flutuantes, z-index, o mapa preenchendo a tela) só valida de
+  verdade no seu navegador.
 - Bundle final passou de 500KB minificado (aviso do Vite) — não bloqueante,
   possível item de polimento na Fase 12.
 - Funções de domínio restantes em `storage.ts` (QR, viagens, notificações)
