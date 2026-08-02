@@ -1,7 +1,7 @@
 # Progresso do Click Way
 
 ## Fase atual
-Fase 6 — Roteamento (Dijkstra): calculateRoute.ts com graphology-shortest-path, conversão de custo para distância real via escala
+Fase 7 — Passageiro: busca e rota (tela inicial, busca por POI/plataforma, traçado da rota no mapa)
 
 ## Concluído
 - [x] Fase 1 — Setup do projeto
@@ -9,7 +9,7 @@ Fase 6 — Roteamento (Dijkstra): calculateRoute.ts com graphology-shortest-path
 - [x] Fase 3 — Admin: mapa e escala
 - [x] Fase 4 — Admin: locais
 - [x] Fase 5 — Admin: grafo
-- [ ] Fase 6 — Roteamento (Dijkstra)
+- [x] Fase 6 — Roteamento (Dijkstra)
 - [ ] Fase 7 — Passageiro: busca e rota
 - [ ] Fase 8 — Navegação passo a passo
 - [ ] Fase 9 — QR Code
@@ -84,7 +84,31 @@ Fase 6 — Roteamento (Dijkstra): calculateRoute.ts com graphology-shortest-path
 - `src/app/routes.tsx` / `AdminHome.tsx`: rota `/admin/locais` linkada.
 - Validado com `npx tsc -b`, `npm run build` e `npm run lint` — limpos.
 
-## Correções e melhorias aplicadas após teste do usuário (ainda Fase 4)
+## O que foi feito na Fase 6
+- `src/features/routing/calculateRoute.ts` (novo): monta um grafo
+  `graphology` a partir de `getGraphNodes()`/`getGraphEdges()` e calcula o
+  menor caminho entre dois nós com `dijkstra.bidirectional` (do namespace
+  `dijkstra` de `graphology-shortest-path` — **atenção documentada no próprio
+  código:** esse pacote também exporta um `bidirectional` solto na raiz do
+  módulo, mas é a versão sem peso (BFS); usar aquele por engano dá uma rota
+  "com menos saltos" em vez de "mais curta de verdade", sem nenhum erro de
+  tipo ou runtime pra avisar). Retorna `{ nodeIds, totalWeight }` ou `null` se
+  não houver caminho entre os nós (grafo desconectado nesse trecho).
+- **Esta fase não tem tela própria** — é só o motor de cálculo, consumido a
+  partir da Fase 7 (busca do passageiro) e da Fase 8 (instruções passo a
+  passo).
+- **Validação real, não só tipo/build:** diferente das fases anteriores (que
+  dependem de Leaflet/DOM, que não consigo rodar neste ambiente), o
+  roteamento é lógica pura — dava pra testar de verdade. Rodei um teste à
+  parte (não faz parte do projeto, foi só verificação) reproduzindo a mesma
+  lógica com dados inventados, cobrindo: (1) escolher o caminho de menor peso
+  total mesmo quando não é o de menos "saltos"/mais direto geometricamente,
+  (2) retornar `null` para nós sem conexão entre si, (3) origem igual ao
+  destino. Todos passaram.
+- Validado também com `npx tsc -b`, `npm run build` e `npm run lint` — 0
+  erros, 0 avisos.
+
+
 Você testou a Fase 4 e reportou 3 problemas reais — todos corrigidos antes de
 seguir pra Fase 5:
 
