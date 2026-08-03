@@ -406,12 +406,32 @@ Você testou de novo e trouxe dois pontos:
 Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
 avisos.
 
+## Melhorias aplicadas após 3º teste do usuário (ainda Fase 7)
+Duas melhorias de UX pedidas em cima do que já estava funcionando:
+
+1. **Filtro de categoria só afetava a lista de busca, não o mapa.** Agora
+   `browseMarkers` (os POIs mostrados no mapa em modo "busca") também filtra
+   pela categoria selecionada — igual já acontecia com `filteredPois` (a
+   lista). Selecionar "Alimentação" agora esconde os outros POIs do mapa
+   também, não só da lista.
+2. **Fileira de categorias precisava ser responsiva / não poluir a tela.**
+   `src/features/passenger/CategoryFilterModal.tsx` (novo): bottom sheet com
+   grade responsiva (`repeat(auto-fill, minmax(84px, 1fr))`, mesmo padrão do
+   seletor de categoria do admin) mostrando TODAS as categorias usadas, mais
+   uma opção "Todos os locais" pra limpar o filtro. Na tela principal, a
+   fileira de chips agora mostra só até `MAX_INLINE_CATEGORIES` (4) direto,
+   com um botão "Ver todas" no final que abre o modal quando há mais
+   categorias do que isso. Detalhe: se a categoria ativa não estiver entre as
+   4 visíveis (ex: foi selecionada pelo modal), ela é trazida pra fileira
+   mesmo assim, pra sempre dar pra ver/desmarcar o filtro sem reabrir o
+   modal.
+
+Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+avisos.
+
 ## Problemas conhecidos / pendências
-- A correção do limite de distância e dos locais sempre visíveis/clicáveis
-  ainda não foi testada por você no navegador — o limite de distância foi
-  validado com um teste real fora do projeto (ver seção acima), mas a parte
-  visual (POIs aparecendo, clique no ícone traçando rota) só valida de
-  verdade no seu navegador.
+- O filtro de categoria afetando o mapa e o modal "Ver todas as categorias"
+  ainda não foram testados por você no navegador.
 - Se o admin tiver POIs cadastrados longe de qualquer nó/aresta do grafo,
   a rota vai ser recusada com a mensagem "muito longe" — isso é esperado
   (ver correção acima), não é bug. A solução é o admin estender o grafo.

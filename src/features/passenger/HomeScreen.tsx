@@ -23,15 +23,20 @@
 // PROGRESS.md.
 
 import { useEffect, useMemo, useState } from 'react';
+import { FaEllipsis } from 'react-icons/fa6';
 import AppHeader from '../../shared/components/AppHeader';
 import MapView, { type MapViewLine, type MapViewMarker } from '../map/MapView';
 import SearchBar from './SearchBar';
 import SearchResultsList from './SearchResultsList';
+import CategoryFilterModal from './CategoryFilterModal';
 import { getMap, getPois, getCategories } from '../../shared/lib/storage';
 import { calculateRoute, type RouteFailureReason, type RouteResult } from '../routing/calculateRoute';
 import { renderPoiIconHtml } from '../../shared/lib/poiIconHtml';
 import { Z_INDEX } from '../../shared/lib/zIndex';
 import type { Category, MapImage, Point, Poi } from '../../shared/types';
+
+/** Quantos chips de categoria mostrar direto na tela antes de precisar abrir "Ver todas" (pedido do usuário: não deixar a fileira poluída). */
+const MAX_INLINE_CATEGORIES = 4;
 
 const ROUTE_FAILURE_MESSAGES: Record<RouteFailureReason, string> = {
   'sem-caminhos': 'Ainda não há nenhum caminho configurado neste mapa.',
@@ -53,6 +58,8 @@ function HomeScreen() {
   const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
   const [routeError, setRouteError] = useState<string | null>(null);
   const [calculatingRoute, setCalculatingRoute] = useState(false);
+
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
 
   useEffect(() => {
     getMap()
@@ -110,6 +117,22 @@ function HomeScreen() {
     return categories.filter((cat) => usedIds.has(cat.id));
   }, [pois, categories]);
 
+  // Fileira de chips limitada (pedido do usuário: não poluir a tela quando
+  // há muitas categorias) — o resto fica atrás do botão "Ver todas". Se a
+  // categoria ativa não estiver entre as primeiras, ela é trazida pra
+  // fileira mesmo assim, pra sempre dar pra ver/desmarcar o filtro ativo sem
+  // precisar abrir o modal de novo.
+  const visibleCategories = useMemo(() => {
+    const base = usedCategories.slice(0, MAX_INLINE_CATEGORIES);
+    if (selectedCategoryId && !base.some((cat) => cat.id === selectedCategoryId)) {
+      const selected = usedCategories.find((cat) => cat.id === selectedCategoryId);
+      if (selected) return [selected, ...base.slice(0, MAX_INLINE_CATEGORIES - 1)];
+    }
+    return base;
+  }, [usedCategories, selectedCategoryId]);
+
+  const hasMoreCategories = usedCategories.length > MAX_INLINE_CATEGORIES;
+
   const filteredPois = useMemo(() => {
     return pois.filter((poi) => {
       if (selectedCategoryId && poi.category !== selectedCategoryId) return false;
@@ -149,21 +172,22 @@ function HomeScreen() {
     if (poi) handleSelectDestination(poi);
   }
 
-  // Modo "busca" (sem destino ainda): mostra todos os POIs no mapa, cada um
-  // clicável. Modo "rota" (destino escolhido): só origem + destino, pra não
-  // poluir a rota traçada com os outros pontos.
-  const browseMarkers: MapViewMarker[] = useMemo(
-    () =>
-      pois.map((poi) => ({
-        id: poi.id,
-        position: poi.position,
-        color: getCategoryMeta(poi.category).color,
-        label: poi.name,
-        iconHtml: renderPoiIconHtml(poi),
-      })),
+  // Modo "busca" (sem destino ainda): mostra os POIs no mapa — filtrados pela
+  // categoria selecionada, se houver (pedido do usuário: o filtro de
+  // categoria deve afetar o mapa, não só a lista de resultados). Modo
+  // "rota" (destino escolhido): só origem + destino, pra não poluir a rota
+  // traçada com os outros pontos.
+  const browseMarkers: MapViewMarker[] = useMemo(() => {
+    const visiblePois = selectedCategoryId ? pois.filter((poi) => poi.category === selectedCategoryId) : pois;
+    return visiblePois.map((poi) => ({
+      id: poi.id,
+      position: poi.position,
+      color: getCategoryMeta(poi.category).color,
+      label: poi.name,
+      iconHtml: renderPoiIconHtml(poi),
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pois, categories],
-  );
+  }, [pois, categories, selectedCategoryId]);
 
   const routeMarkers: MapViewMarker[] = [];
   if (originPoint) {
@@ -244,7 +268,7 @@ function HomeScreen() {
 
               {usedCategories.length > 0 && (
                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
-                  {usedCategories.map((cat) => {
+                  {visibleCategories.map((cat) => {
                     const selected = cat.id === selectedCategoryId;
                     return (
                       <button
@@ -275,6 +299,31 @@ function HomeScreen() {
                       </button>
                     );
                   })}
+
+                  {hasMoreCategories && (
+                    <button
+                      type="button"
+                      onClick={() => setCategoryModalOpen(true)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 14px',
+                        borderRadius: '999px',
+                        border: '1px solid var(--color-border)',
+                        background: 'var(--color-surface)',
+                        color: 'var(--color-text)',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                      }}
+                    >
+                      <FaEllipsis />
+                      Ver todas
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -391,6 +440,15 @@ function HomeScreen() {
             </div>
           )}
         </div>
+      )}
+
+      {categoryModalOpen && (
+        <CategoryFilterModal
+          categories={usedCategories}
+          selectedCategoryId={selectedCategoryId}
+          onSelect={setSelectedCategoryId}
+          onClose={() => setCategoryModalOpen(false)}
+        />
       )}
     </div>
   );
