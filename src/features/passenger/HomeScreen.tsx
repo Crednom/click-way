@@ -1,17 +1,19 @@
 // Tela inicial do módulo Passageiro (seção 2.2 do spec: busca, categorias,
 // traçado de rota no mapa).
 //
-// REVISÃO (feedback do usuário): duas mudanças em cima da primeira versão
-// desta fase.
-// 1. O mapa agora fica SEMPRE visível (antes só aparecia depois de escolher
-//    um destino). Busca, categorias, resultados e o card de rota viram
-//    painéis flutuantes por cima do mapa (`Z_INDEX.overlay`), no estilo
-//    Google Maps — em vez de o mapa e a busca serem duas "telas" que se
-//    alternam.
-// 2. A rota usa `calculateRoute(fromPoint, toPoint)` (ver
-//    features/routing/calculateRoute.ts), que encaixa cada ponto na ARESTA
-//    mais próxima, não no nó mais próximo — elimina o buraco visual entre o
-//    ponto tocado/POI e o início da linha da rota.
+// REVISÃO 1 (feedback do usuário): mapa sempre visível (painéis flutuantes
+// por cima, estilo Google Maps) + rota calculada com encaixe na aresta mais
+// próxima (não no nó). Ver features/routing/calculateRoute.ts.
+//
+// REVISÃO 2 (feedback do usuário): dois pedidos atendidos aqui.
+// 1. Os locais (POIs) agora aparecem SEMPRE no mapa (antes só apareciam
+//    depois de escolher um destino pela busca) — igual ao Google Maps
+//    mostrando os pontos de interesse no mapa por padrão.
+// 2. Tocar diretamente no ícone de um local no mapa já define ele como
+//    destino e traça a rota — não precisa passar pela busca.
+// Ao entrar em modo "rota" (destino escolhido), os outros POIs somem e só
+// origem+destino ficam visíveis, pra não poluir a rota traçada (mesmo
+// princípio de anti-poluição já aplicado nos mapas do admin).
 //
 // DECISÃO que continua valendo: localização do passageiro é manual (toque no
 // mapa) até a Fase 9 implementar QR Code. Ver PROGRESS.md.
@@ -26,10 +28,16 @@ import MapView, { type MapViewLine, type MapViewMarker } from '../map/MapView';
 import SearchBar from './SearchBar';
 import SearchResultsList from './SearchResultsList';
 import { getMap, getPois, getCategories } from '../../shared/lib/storage';
-import { calculateRoute, type RouteResult } from '../routing/calculateRoute';
+import { calculateRoute, type RouteFailureReason, type RouteResult } from '../routing/calculateRoute';
 import { renderPoiIconHtml } from '../../shared/lib/poiIconHtml';
 import { Z_INDEX } from '../../shared/lib/zIndex';
 import type { Category, MapImage, Point, Poi } from '../../shared/types';
+
+const ROUTE_FAILURE_MESSAGES: Record<RouteFailureReason, string> = {
+  'sem-caminhos': 'Ainda não há nenhum caminho configurado neste mapa.',
+  'muito-longe': 'Este ponto está muito longe de qualquer caminho configurado no mapa.',
+  'sem-rota': 'Não foi possível calcular uma rota até este local (o mapa pode ter um trecho desconectado).',
+};
 
 function HomeScreen() {
   const [map, setMap] = useState<MapImage | null>(null);
@@ -67,15 +75,15 @@ function HomeScreen() {
     setCalculatingRoute(true);
 
     calculateRoute(originPoint, destination.position)
-      .then((result) => {
+      .then((outcome) => {
         if (cancelled) return;
-        if (!result) {
+        if (!outcome.ok) {
           setRouteResult(null);
-          setRouteError('Não foi possível calcular uma rota até este local.');
+          setRouteError(ROUTE_FAILURE_MESSAGES[outcome.reason]);
           return;
         }
         setRouteError(null);
-        setRouteResult(result);
+        setRouteResult(outcome.result);
       })
       .finally(() => {
         if (!cancelled) setCalculatingRoute(false);
@@ -127,9 +135,35 @@ function HomeScreen() {
   }
 
   function handleMapClick(point: Point) {
-    if (!destination) return;
+    if (!destination) return; // só captura "estou aqui" quando já tem destino escolhido
     setOriginPoint(point);
   }
+
+  // Tocar direto num ícone de local no mapa: se ainda não tem destino, esse
+  // toque define o destino (igual ao Google Maps); se já tem destino em
+  // rota, os outros locais nem aparecem (ver browseMarkers/routeMarkers
+  // abaixo), então esse handler só é relevante no modo "busca".
+  function handleMarkerClick(markerId: string) {
+    if (destination) return;
+    const poi = pois.find((item) => item.id === markerId);
+    if (poi) handleSelectDestination(poi);
+  }
+
+  // Modo "busca" (sem destino ainda): mostra todos os POIs no mapa, cada um
+  // clicável. Modo "rota" (destino escolhido): só origem + destino, pra não
+  // poluir a rota traçada com os outros pontos.
+  const browseMarkers: MapViewMarker[] = useMemo(
+    () =>
+      pois.map((poi) => ({
+        id: poi.id,
+        position: poi.position,
+        color: getCategoryMeta(poi.category).color,
+        label: poi.name,
+        iconHtml: renderPoiIconHtml(poi),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pois, categories],
+  );
 
   const routeMarkers: MapViewMarker[] = [];
   if (originPoint) {
@@ -149,6 +183,8 @@ function HomeScreen() {
       iconHtml: renderPoiIconHtml(destination),
     });
   }
+
+  const displayedMarkers = destination ? routeMarkers : browseMarkers;
 
   // `routeResult.points` é o caminho inteiro em sequência — vira uma linha
   // por par de pontos consecutivos (é assim que o MapView desenha).
@@ -182,9 +218,10 @@ function HomeScreen() {
             imageDataUrl={map.imageDataUrl}
             width={map.width}
             height={map.height}
-            markers={routeMarkers}
+            markers={displayedMarkers}
             lines={routeLines}
             onMapClick={handleMapClick}
+            onMarkerClick={handleMarkerClick}
             heightPx="100%"
           />
 

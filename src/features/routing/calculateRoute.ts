@@ -3,15 +3,24 @@
 // arestas salvos pelo admin (Fase 5) e usa `graphology-shortest-path`
 // (Dijkstra) para achar o menor caminho.
 //
-// REVISÃO (feedback do usuário, ainda dentro do espírito da Fase 7): a
-// primeira versão desta fase calculava a rota entre o NÓ mais próximo da
-// origem e o NÓ mais próximo do destino — o que deixava um "buraco" visível
-// entre o ponto real (onde o passageiro tocou, ou a posição exata do POI) e
-// o início da linha da rota. A correção, que é a abordagem padrão usada por
-// apps de navegação de verdade (Google Maps, Waze, OSRM...), é encaixar o
-// ponto na ARESTA mais próxima (projeção perpendicular sobre o segmento),
-// não no nó mais próximo. Isso dá um encaixe exato, sem exigir que o admin
-// crie manualmente uma porção de nós extras ao longo dos corredores.
+// REVISÃO 1 (feedback do usuário): a primeira versão desta fase calculava a
+// rota entre o NÓ mais próximo da origem e o NÓ mais próximo do destino — o
+// que deixava um "buraco" visível entre o ponto real e o início da linha da
+// rota. Corrigido encaixando cada ponto na ARESTA mais próxima (projeção
+// perpendicular sobre o segmento), não no nó mais próximo — mesma técnica
+// usada por apps de navegação reais ("snap to edge/road").
+//
+// REVISÃO 2 (feedback do usuário): o encaixe na aresta mais próxima não
+// tinha limite de distância — se o ponto (origem ou destino) estivesse longe
+// de qualquer aresta desenhada, o código encaixava na aresta mais próxima DE
+// QUALQUER JEITO, e desenhava uma linha reta até lá, que podia cortar por
+// cima de paredes/construções no mapa (porque não segue caminho nenhum,
+// segue linha reta). Corrigido com `MAX_SNAP_DISTANCE_PCT`: se a aresta mais
+// próxima estiver mais longe que isso, a rota é recusada (com um motivo
+// específico) em vez de desenhar algo sem sentido. Isso também empurra o
+// problema pro lugar certo: se isso acontecer, é o grafo do admin que está
+// incompleto perto daquele ponto, não algo que o código deveria "inventar"
+// uma solução geométrica pra disfarçar.
 //
 // Não depende de nenhuma tela — puro cálculo, consumido pela Fase 7 (busca
 // do passageiro) e pela Fase 8 (instruções passo a passo).
@@ -34,6 +43,26 @@ export interface RouteResult {
   /** Ids dos nós reais do grafo atravessados (sem os pontos virtuais de origem/destino) — útil pra Fase 8 relacionar trechos com o tipo de aresta (corredor/escada/etc). */
   nodeIds: string[];
 }
+
+export type RouteFailureReason =
+  | 'sem-caminhos' // grafo não tem nenhuma aresta ainda
+  | 'muito-longe' // origem ou destino longe demais de qualquer aresta (ver MAX_SNAP_DISTANCE_PCT)
+  | 'sem-rota'; // grafo desconectado nesse trecho, ou erro inesperado do Dijkstra
+
+export type RouteCalculation =
+  | { ok: true; result: RouteResult }
+  | { ok: false; reason: RouteFailureReason };
+
+/**
+ * Distância máxima (em unidades percentuais do mapa, 0-100) que um ponto
+ * pode estar da aresta mais próxima para ainda ser considerado "conectado"
+ * a ela. Acima disso, a rota é recusada em vez de desenhar uma linha reta
+ * sem sentido até uma aresta distante. Ajustável — 12 é um ponto de partida
+ * razoável, mas depende de quão zoomada/proporcional é a planta enviada
+ * pelo admin; se muitas rotas legítimas estiverem sendo recusadas, aumente
+ * este valor (ou é sinal de que o grafo precisa de mais nós perto dali).
+ */
+export const MAX_SNAP_DISTANCE_PCT = 12;
 
 const ORIGIN_VIRTUAL_ID = '__origin__';
 const DESTINATION_VIRTUAL_ID = '__destination__';
@@ -149,7 +178,10 @@ function toDistanceUnit(distancePct: number, scale: MapScale | undefined): numbe
  * Calcula a rota entre dois pontos GEOMÉTRICOS quaisquer (não nós do grafo) —
  * ex: onde o passageiro tocou o mapa, e a posição exata de um POI. Encaixa
  * cada ponto na aresta mais próxima (não no nó mais próximo) antes de rodar
- * o Dijkstra, pra não deixar buraco entre o ponto real e a rota desenhada.
+ * o Dijkstra, pra não deixar buraco entre o ponto real e a rota desenhada —
+ * mas recusa o encaixe se a aresta mais próxima estiver longe demais (ver
+ * `MAX_SNAP_DISTANCE_PCT`), pra não desenhar uma linha reta sem sentido por
+ * cima de paredes/construções que não têm caminho nenhum modelado ali.
  *
  * ATENÇÃO: o pacote `graphology-shortest-path` exporta um `bidirectional` na
  * raiz do módulo, mas esse é o algoritmo SEM peso (BFS). O que usamos aqui é
@@ -157,17 +189,21 @@ function toDistanceUnit(distancePct: number, scale: MapScale | undefined): numbe
  * atributo de peso. Import errado = rota "com menos saltos" em vez de "mais
  * curta de verdade" — silenciosamente errado, sem erro de tipo ou runtime.
  */
-export async function calculateRoute(fromPoint: Point, toPoint: Point): Promise<RouteResult | null> {
+export async function calculateRoute(fromPoint: Point, toPoint: Point): Promise<RouteCalculation> {
   const nodes = getGraphNodes();
   const edges = getGraphEdges();
-  if (edges.length === 0) return null; // sem nenhuma aresta, não há como formar rota nenhuma
+  if (edges.length === 0) return { ok: false, reason: 'sem-caminhos' };
 
   const map = await getMap();
   const scale = map?.scale;
 
   const fromProjection = findNearestEdgeProjection(fromPoint, nodes, edges);
   const toProjection = findNearestEdgeProjection(toPoint, nodes, edges);
-  if (!fromProjection || !toProjection) return null;
+  if (!fromProjection || !toProjection) return { ok: false, reason: 'sem-caminhos' };
+
+  if (fromProjection.distancePct > MAX_SNAP_DISTANCE_PCT || toProjection.distancePct > MAX_SNAP_DISTANCE_PCT) {
+    return { ok: false, reason: 'muito-longe' };
+  }
 
   // Caso especial: origem e destino caem na mesma aresta — linha reta direta
   // entre os dois pontos projetados, sem precisar do resto do grafo. Usa o
@@ -182,9 +218,12 @@ export async function calculateRoute(fromPoint: Point, toPoint: Point): Promise<
       toDistanceUnit(percentDistance(toProjection.point, toPoint), scale);
 
     return {
-      points: [fromPoint, fromProjection.point, toProjection.point, toPoint],
-      totalDistance,
-      nodeIds: [],
+      ok: true,
+      result: {
+        points: [fromPoint, fromProjection.point, toProjection.point, toPoint],
+        totalDistance,
+        nodeIds: [],
+      },
     };
   }
 
@@ -196,9 +235,9 @@ export async function calculateRoute(fromPoint: Point, toPoint: Point): Promise<
   try {
     path = dijkstra.bidirectional(graph, ORIGIN_VIRTUAL_ID, DESTINATION_VIRTUAL_ID, 'weight');
   } catch {
-    return null;
+    return { ok: false, reason: 'sem-rota' };
   }
-  if (!path) return null;
+  if (!path) return { ok: false, reason: 'sem-rota' };
 
   const positionById = new Map<string, Point>(nodes.map((node) => [node.id, node.position]));
   positionById.set(ORIGIN_VIRTUAL_ID, fromProjection.point);
@@ -219,8 +258,11 @@ export async function calculateRoute(fromPoint: Point, toPoint: Point): Promise<
   // o admin seguiu a sugestão da Fase 5) — só `lastMile` precisa passar por
   // `toDistanceUnit`, porque nasce de uma distância percentual crua.
   return {
-    points: [fromPoint, ...graphPoints, toPoint],
-    totalDistance: graphWeight + lastMile,
-    nodeIds: realNodeIds,
+    ok: true,
+    result: {
+      points: [fromPoint, ...graphPoints, toPoint],
+      totalDistance: graphWeight + lastMile,
+      nodeIds: realNodeIds,
+    },
   };
 }

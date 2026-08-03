@@ -365,12 +365,56 @@ avisos.
   categorias do admin (`getCategories()`), não a taxonomia fixa do documento
   original — ver mesma seção acima.
 
+## Correções aplicadas após 2º teste do usuário (ainda Fase 7)
+Você testou de novo e trouxe dois pontos:
+
+1. **A rota cortava por cima de construções/obstáculos.** Causa raiz: o
+   encaixe na aresta mais próxima (correção anterior) não tinha limite de
+   distância — se o destino estivesse longe de qualquer trecho do grafo
+   desenhado pelo admin, o código encaixava na aresta mais próxima *de
+   qualquer jeito*, por mais distante que fosse, e desenhava uma linha reta
+   até lá (que não segue corredor nenhum, é só geometria — por isso cortava
+   por cima de paredes). Corrigido com `MAX_SNAP_DISTANCE_PCT` (12, em
+   unidades percentuais do mapa) em `calculateRoute.ts`: se a aresta mais
+   próxima estiver mais longe que isso, a rota é **recusada** (motivo
+   `'muito-longe'`) em vez de desenhar algo sem sentido. Isso é o
+   comportamento certo: se um POI está longe de qualquer caminho modelado,
+   o problema é o grafo do admin estar incompleto ali, não algo que o código
+   deveria "inventar" uma linha reta pra disfarçar. **Ação recomendada pro
+   admin:** estender os nós/arestas do grafo até perto de cada local
+   cadastrado, especialmente os mais afastados do corredor principal.
+   `calculateRoute` mudou de retornar `RouteResult | null` para um tipo
+   `RouteCalculation` (`{ok:true,result} | {ok:false,reason}`), com 3 motivos
+   possíveis (`sem-caminhos`, `muito-longe`, `sem-rota`) — a `HomeScreen`
+   agora mostra uma mensagem diferente pra cada um, em vez de um erro
+   genérico único.
+2. **Locais só apareciam depois de escolher um destino pela busca; pedido:
+   sempre visíveis + clicar no ícone no mapa já traça rota (como Google
+   Maps).** `HomeScreen.tsx`: agora sempre mostra todos os POIs no mapa
+   (`browseMarkers`) enquanto nenhum destino foi escolhido — cada um
+   clicável (`onMarkerClick` do MapView), definindo aquele POI como destino
+   direto, sem precisar passar pela busca. Assim que um destino é definido
+   (seja pela busca ou pelo clique no mapa), os outros POIs somem e só
+   origem+destino ficam visíveis — mesmo princípio de anti-poluição já usado
+   nos mapas do admin.
+   - **Validação real do limite de distância:** rodei um teste à parte
+     reproduzindo um cenário parecido com o do seu print (grafo cobrindo só
+     uma pequena região, destino bem longe dele) — confirmei que o ponto
+     distante é corretamente recusado (55.4 de distância vs limite de 12), e
+     que um ponto próximo (5.0) continua sendo aceito normalmente.
+
+Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+avisos.
+
 ## Problemas conhecidos / pendências
-- A correção do mapa sempre visível e do encaixe na aresta ainda não foi
-  testada por você no navegador — validei a geometria/roteamento com testes
-  reais fora do projeto (ver "Correções aplicadas" acima), mas a parte visual
-  (painéis flutuantes, z-index, o mapa preenchendo a tela) só valida de
+- A correção do limite de distância e dos locais sempre visíveis/clicáveis
+  ainda não foi testada por você no navegador — o limite de distância foi
+  validado com um teste real fora do projeto (ver seção acima), mas a parte
+  visual (POIs aparecendo, clique no ícone traçando rota) só valida de
   verdade no seu navegador.
+- Se o admin tiver POIs cadastrados longe de qualquer nó/aresta do grafo,
+  a rota vai ser recusada com a mensagem "muito longe" — isso é esperado
+  (ver correção acima), não é bug. A solução é o admin estender o grafo.
 - Bundle final passou de 500KB minificado (aviso do Vite) — não bloqueante,
   possível item de polimento na Fase 12.
 - Funções de domínio restantes em `storage.ts` (QR, viagens, notificações)
