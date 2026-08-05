@@ -1,17 +1,17 @@
 // Barra de busca (seção 2.2 do spec: "Tela inicial: Pesquisa, Categorias,
-// Botão QR Code"). O botão de QR Code já aparece aqui (fixo, acessível com o
-// polegar, seção 8), mas ainda não faz nada — a leitura de QR é a Fase 9.
-// Por enquanto ele só mostra que a função está a caminho (title="Em breve"),
-// pra não fingir uma funcionalidade que não existe ainda.
+// Botão QR Code"). O botão de QR Code (fixo, acessível com o polegar, seção
+// 8) abre o leitor de câmera (Fase 9) pra identificar a localização atual
+// automaticamente.
 
 import { FaMagnifyingGlass, FaQrcode } from 'react-icons/fa6';
 
 interface SearchBarProps {
   value: string;
   onChange: (value: string) => void;
+  onQrClick: () => void;
 }
 
-function SearchBar({ value, onChange }: SearchBarProps) {
+function SearchBar({ value, onChange, onQrClick }: SearchBarProps) {
   return (
     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
       <div
@@ -43,7 +43,8 @@ function SearchBar({ value, onChange }: SearchBarProps) {
       </div>
       <button
         type="button"
-        title="Em breve: identificar sua localização por QR Code"
+        onClick={onQrClick}
+        title="Identificar sua localização por QR Code"
         aria-label="Escanear QR Code"
         style={{
           width: '44px',
@@ -57,7 +58,6 @@ function SearchBar({ value, onChange }: SearchBarProps) {
           justifyContent: 'center',
           fontSize: '1.1rem',
           flexShrink: 0,
-          opacity: 0.6,
         }}
       >
         <FaQrcode />

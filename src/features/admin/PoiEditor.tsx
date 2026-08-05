@@ -238,6 +238,7 @@ function PoiEditor() {
       {editingPoi && (
         <PoiFormModal
           isEditing
+          poiId={editingPoi.id}
           initial={{
             name: editingPoi.name,
             category: editingPoi.category,

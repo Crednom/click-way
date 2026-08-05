@@ -15,6 +15,7 @@ import AdminHome from '../features/admin/AdminHome';
 import MapUpload from '../features/admin/MapUpload';
 import PoiEditor from '../features/admin/PoiEditor';
 import GraphEditorView from '../features/graph/GraphEditorView';
+import QrCodeManager from '../features/admin/QrCodeManager';
 import HomeScreen from '../features/passenger/HomeScreen';
 
 interface RequireRoleProps {
@@ -64,6 +65,14 @@ function AppRoutes() {
           element={
             <RequireRole expected="admin">
               <GraphEditorView />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/admin/qrcodes"
+          element={
+            <RequireRole expected="admin">
+              <QrCodeManager />
             </RequireRole>
           }
         />

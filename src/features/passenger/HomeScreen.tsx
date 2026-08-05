@@ -15,20 +15,29 @@
 // origem+destino ficam visíveis, pra não poluir a rota traçada (mesmo
 // princípio de anti-poluição já aplicado nos mapas do admin).
 //
-// DECISÃO que continua valendo: localização do passageiro é manual (toque no
-// mapa) até a Fase 9 implementar QR Code. Ver PROGRESS.md.
+// REVISÃO 3 (Fase 9 — QR Code): o botão de QR Code (antes só visual) agora
+// abre a câmera de verdade (`QrScanner.tsx`). Ao reconhecer um QR Code do
+// Click Way, resolve pra um ponto no mapa e preenche `originPoint`
+// automaticamente — mesmo mecanismo que já existia pro toque manual no mapa,
+// só que automático. O toque manual continua funcionando como alternativa
+// (ex: passageiro sem como escanear), como planejado desde a Fase 7. Também
+// nesta revisão: tocar no mapa pra indicar "estou aqui" e usar o QR Code
+// agora funcionam a qualquer momento (antes só era possível depois de
+// escolher um destino) — assim como no fluxo real, o passageiro pode saber
+// onde está antes mesmo de decidir pra onde ir.
 //
 // DECISÃO que continua valendo: categorias de busca = categorias reais dos
 // POIs (`getCategories()`), não a taxonomia fixa do documento original. Ver
 // PROGRESS.md.
 
 import { useEffect, useMemo, useState } from 'react';
-import { FaEllipsis } from 'react-icons/fa6';
+import { FaEllipsis, FaQrcode } from 'react-icons/fa6';
 import AppHeader from '../../shared/components/AppHeader';
 import MapView, { type MapViewLine, type MapViewMarker } from '../map/MapView';
 import SearchBar from './SearchBar';
 import SearchResultsList from './SearchResultsList';
 import CategoryFilterModal from './CategoryFilterModal';
+import QrScanner from '../qrcode/QrScanner';
 import { getMap, getPois, getCategories } from '../../shared/lib/storage';
 import { calculateRoute, type RouteFailureReason, type RouteResult } from '../routing/calculateRoute';
 import { renderPoiIconHtml } from '../../shared/lib/poiIconHtml';
@@ -60,6 +69,7 @@ function HomeScreen() {
   const [calculatingRoute, setCalculatingRoute] = useState(false);
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   useEffect(() => {
     getMap()
@@ -158,8 +168,12 @@ function HomeScreen() {
   }
 
   function handleMapClick(point: Point) {
-    if (!destination) return; // só captura "estou aqui" quando já tem destino escolhido
     setOriginPoint(point);
+  }
+
+  function handleLocationFound(point: Point) {
+    setOriginPoint(point);
+    setScannerOpen(false);
   }
 
   // Tocar direto num ícone de local no mapa: se ainda não tem destino, esse
@@ -179,15 +193,19 @@ function HomeScreen() {
   // traçada com os outros pontos.
   const browseMarkers: MapViewMarker[] = useMemo(() => {
     const visiblePois = selectedCategoryId ? pois.filter((poi) => poi.category === selectedCategoryId) : pois;
-    return visiblePois.map((poi) => ({
+    const markers: MapViewMarker[] = visiblePois.map((poi) => ({
       id: poi.id,
       position: poi.position,
       color: getCategoryMeta(poi.category).color,
       label: poi.name,
       iconHtml: renderPoiIconHtml(poi),
     }));
+    if (originPoint) {
+      markers.push({ id: 'origin', position: originPoint, color: 'var(--color-passenger)', label: 'Você está aqui' });
+    }
+    return markers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pois, categories, selectedCategoryId]);
+  }, [pois, categories, selectedCategoryId, originPoint]);
 
   const routeMarkers: MapViewMarker[] = [];
   if (originPoint) {
@@ -264,7 +282,7 @@ function HomeScreen() {
                 gap: '10px',
               }}
             >
-              <SearchBar value={query} onChange={setQuery} />
+              <SearchBar value={query} onChange={setQuery} onQrClick={() => setScannerOpen(true)} />
 
               {usedCategories.length > 0 && (
                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '2px' }}>
@@ -358,11 +376,34 @@ function HomeScreen() {
                 borderRadius: '12px',
                 padding: '12px 16px',
                 fontSize: '0.9rem',
-                textAlign: 'center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
               }}
             >
-              Toque no mapa para indicar onde você está agora.
+              <span>Toque no mapa para indicar onde você está agora.</span>
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                aria-label="Escanear QR Code"
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '36px',
+                  height: '36px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  fontSize: '1rem',
+                }}
+              >
+                <FaQrcode />
+              </button>
             </div>
           )}
 
@@ -449,6 +490,10 @@ function HomeScreen() {
           onSelect={setSelectedCategoryId}
           onClose={() => setCategoryModalOpen(false)}
         />
+      )}
+
+      {scannerOpen && (
+        <QrScanner onLocationFound={handleLocationFound} onClose={() => setScannerOpen(false)} />
       )}
     </div>
   );

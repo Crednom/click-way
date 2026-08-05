@@ -1,7 +1,7 @@
 # Progresso do Click Way
 
 ## Fase atual
-Fase 8 — Navegação passo a passo (transformar o caminho do grafo em instruções textuais com distância real)
+Fase 10 — Viagens (cadastro: empresa, destino, horário, plataforma, status; exibição ao tocar numa plataforma no mapa do passageiro)
 
 ## Concluído
 - [x] Fase 1 — Setup do projeto
@@ -11,18 +11,18 @@ Fase 8 — Navegação passo a passo (transformar o caminho do grafo em instruç
 - [x] Fase 5 — Admin: grafo
 - [x] Fase 6 — Roteamento (Dijkstra)
 - [x] Fase 7 — Passageiro: busca e rota
-- [ ] Fase 8 — Navegação passo a passo
-- [ ] Fase 9 — QR Code
+- [x] ~~Fase 8 — Navegação passo a passo~~ (implementada e depois **revertida** a pedido do usuário — ver seção própria abaixo)
+- [x] Fase 9 — QR Code
 - [ ] Fase 10 — Viagens
 - [ ] Fase 11 — Notificações
 - [ ] Fase 12 — Polimento
 
-> **Nota sobre este arquivo:** até a revisão da Fase 4, a seção de decisões
-> estava sendo reescrita inteira a cada fase (bug de edição, não de código) e
-> se repetia várias vezes no arquivo; foi consolidada então. Na Fase 7, o
-> mesmo tipo de bug de edição bagunçou a ordem cronológica das seções (o
-> conteúdo estava certo, só fora de ordem). Esta é uma reescrita completa,
-> nesta ordem, sem esse problema — nenhum conteúdo foi perdido.
+> **Nota sobre este arquivo:** já precisou ser reescrito do zero algumas
+> vezes (Fase 4 e Fase 7/8) porque edições cirúrgicas num arquivo grande,
+> feitas por mim, bagunçaram a ordem cronológica ou apagaram cabeçalhos por
+> engano — sempre bug de edição do texto, nunca de código (o projeto em si
+> nunca foi afetado). Nenhum conteúdo foi perdido nas reescritas, só
+> reorganizado.
 
 ## O que foi feito na Fase 1
 - Projeto criado com `npm create vite@latest -- --template react-ts`.
@@ -62,7 +62,7 @@ Fase 8 — Navegação passo a passo (transformar o caminho do grafo em instruç
 
 ## O que foi feito na Fase 3
 - `src/shared/lib/coordinates.ts`: conversão pixel↔percentual, distância entre
-  pontos, `computeScale` e `percentDistanceToMeters` (uso futuro nas Fases 6/8).
+  pontos, `computeScale` e `percentDistanceToMeters`.
 - `src/shared/lib/image.ts`: lê e comprime/redimensiona imagem antes de salvar.
 - `src/shared/lib/storage.ts`: `getMap`/`saveMap` (IndexedDB, chave fixa
   `map-default`) e `getDefaultFloor` (Floor fixo `floor-default`).
@@ -72,8 +72,6 @@ Fase 8 — Navegação passo a passo (transformar o caminho do grafo em instruç
 - `src/features/admin/MapUpload.tsx`: tela "Mapa e escala" completa.
 - `src/app/routes.tsx` / `AdminHome.tsx`: rota `/admin/mapa` linkada.
 - Validado com `npx tsc -b`, `npm run build` e `npm run lint` — limpos.
-  Ressalva: sem como testar a renderização do Leaflet num navegador real
-  neste ambiente — depende de validação manual.
 
 ## O que foi feito na Fase 4
 - `src/shared/lib/id.ts`: `generateId()`, reutilizado por POIs e futuras
@@ -91,356 +89,248 @@ Fase 8 — Navegação passo a passo (transformar o caminho do grafo em instruç
 Você testou a Fase 4 e reportou 3 problemas reais — todos corrigidos antes de
 seguir pra Fase 5:
 
-1. **Bug: o mapa (Leaflet) aparecia por cima do modal.** Causa: os controles
-   do Leaflet (botões de zoom) usam z-index até 800 por padrão, e o modal
-   estava em z-index 100. Corrigido criando `src/shared/lib/zIndex.ts` com
-   constantes centralizadas (`Z_INDEX.modal = 2000`) — qualquer modal futuro
-   deve usar essa constante em vez de um número solto, pra não repetir o bug.
+1. **Bug: o mapa (Leaflet) aparecia por cima do modal.** Corrigido criando
+   `src/shared/lib/zIndex.ts` com constantes centralizadas
+   (`Z_INDEX.modal = 2000`, acima do máximo usado pelo Leaflet, ~800).
 2. **Marcador no mapa só tinha cor, sem ícone.** `MapView.tsx` trocou
-   `L.circleMarker` por `L.marker` com `divIcon`, aceitando um novo campo
-   opcional `iconHtml` no `MapViewMarker` (HTML pré-renderizado pelo
-   chamador — o MapView continua genérico, sem saber o que é um POI). Criado
-   `src/shared/lib/poiIconHtml.tsx` com `renderPoiIconHtml()`, que usa
-   `renderToStaticMarkup` (react-dom/server) pra transformar o ícone
-   React/SVG em string HTML utilizável pelo Leaflet.
-3. **Pedido: categoria personalizada (nome + cor) além das 13 de fábrica, e
-   ícone customizado por local.** Mudanças:
-   - **DESVIO no modelo de dados:** `Poi.category`/`PoiCategory` eram uma
-     union fechada de 13 valores — viraram `string` livre. A union original
-     continua existindo, mas só internamente em `poiCategories.ts` (não
-     exportada, renomeada `BuiltinCategoryId`), usada apenas pra dar
-     segurança de tipo ao escrever o seed das 13 categorias de fábrica.
-   - Novo tipo `Category` em `shared/types/index.ts`: `{ id, label, color,
-     isCustom }`.
-   - `storage.ts`: `getCategories()` (mescla fábrica + personalizadas) e
-     `saveCustomCategory()` — personalizadas ficam em localStorage na chave
-     `categories:custom`.
-   - `PoiFormModal.tsx`: grid de categorias vem de `getCategories()`, com
-     botão "+ Nova categoria" (nome + `<input type="color">`).
-   - `PoiFormModal.tsx` ganhou upload de ícone customizado por local (campo
-     `Poi.iconUrl`, que já existia no modelo mas não tinha UI): usa
-     `loadAndCompressImage` (agora parametrizada com
-     `maxDimension`/`quality`/`outputFormat`) com `maxDimension: 128` e saída
-     em PNG. Se o POI tiver `iconUrl`, ele tem prioridade sobre o ícone da
-     categoria em todo lugar (marcador do mapa, lista, prévia no modal).
-   - `PoiCategoryIcon.tsx`: categorias sem ícone próprio caem num ícone
-     genérico (`FaLocationDot`).
+   `L.circleMarker` por `L.marker` com `divIcon`, aceitando `iconHtml`
+   (HTML pré-renderizado pelo chamador). Criado
+   `src/shared/lib/poiIconHtml.tsx` com `renderPoiIconHtml()` (usa
+   `renderToStaticMarkup` do react-dom/server).
+3. **Pedido: categoria personalizada (nome + cor), e ícone customizado por
+   local.**
+   - **DESVIO no modelo de dados:** `Poi.category`/`PoiCategory` viraram
+     `string` livre (eram union fechada de 13 valores). A union original
+     continua só internamente em `poiCategories.ts` (renomeada
+     `BuiltinCategoryId`, não exportada).
+   - Novo tipo `Category`: `{ id, label, color, isCustom }`.
+   - `storage.ts`: `getCategories()`/`saveCustomCategory()`.
+   - `PoiFormModal.tsx`: grid de categorias + "+ Nova categoria" + upload de
+     ícone customizado (`Poi.iconUrl`, via `loadAndCompressImage`
+     parametrizada, `maxDimension: 128`, PNG).
 
-Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
-avisos.
+Revalidado — 0 erros, 0 avisos.
 
-**Nota sobre o tamanho do build:** o Vite avisa que o chunk final passou de
-500KB minificado, por causa do `react-dom/server` + Leaflet somados. Não é
-erro, é só informativo — não vou otimizar isso agora (MVP acadêmico, bundle
-size não é prioridade). Registrado como possível item da Fase 12
-(Polimento): `import()` dinâmico do Leaflet/react-dom-server só quando as
-telas que os usam forem abertas.
+**Nota sobre o tamanho do build:** registrado aqui desde a Fase 4 que o
+bundle passaria de 500KB — hoje (Fase 9) já é bem maior ainda por causa do
+`html5-qrcode`, ver nota na seção da Fase 9.
 
 ## Melhoria aplicada após novo teste do usuário (ainda Fase 4)
-Nome do local só aparecia num tooltip de hover — ruim em touch/mobile. Pedido:
-nome sempre visível ao lado do ícone (como no Google Maps), cuidando pra não
-poluir visualmente quando dois pontos estão próximos.
-
-`src/features/map/MapView.tsx` reescrito:
-- Removido `bindTooltip` (hover). O nome agora faz parte do próprio
-  `L.divIcon` do marcador — um "pill" branco ao lado do círculo colorido,
-  sempre visível, sem depender de hover/toque.
-- Anti-colisão: a cada redesenho (incluindo a cada zoom/arraste — evento
-  `zoomend moveend` do Leaflet), cada marcador calcula sua posição em pixels
-  de tela (`map.latLngToContainerPoint`). Um nome só é desenhado se estiver a
-  pelo menos `MIN_LABEL_SPACING_PX` (68px) de distância de outro nome já
-  desenhado nessa mesma passada; caso contrário, mostra só o ícone (sem
-  nome). Isso precisa ser recalculado a cada zoom porque a distância em
-  pixels entre dois pontos do mapa muda conforme o zoom (dois POIs que
-  colidem zoomado longe podem não colidir mais ao aproximar).
-- A ordem de prioridade de quem "ganha" o nome quando há colisão é a ordem
-  do array `markers` recebido (primeiro a desenhar, primeiro a garantir o
-  nome). Não há prioridade por categoria/importância — se isso importar no
-  futuro (ex: sempre priorizar plataformas), dá pra ordenar o array antes de
-  passar pro MapView.
-
-Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
-avisos.
+Nome do local só aparecia num tooltip de hover — ruim em touch/mobile.
+`MapView.tsx` reescrito: nome sempre visível como "pill" no próprio
+`L.divIcon`, com anti-colisão recalculada a cada zoom/arraste
+(`MIN_LABEL_SPACING_PX = 68`, baseado em `map.latLngToContainerPoint`).
 
 ## O que foi feito na Fase 5
-- `src/shared/lib/storage.ts`: `getGraphNodes`/`saveGraphNode`/`getGraphEdges`/
-  `saveGraphEdge`/`deleteGraphEdge` implementados (localStorage, chaves
-  `graphNodes`/`graphEdges`). Adicionado também `deleteGraphNode` (não estava
-  nos stubs originais da Fase 1) — remove o nó, e em cascata apaga as arestas
-  que o usavam e desvincula (`nearestNodeId = undefined`) qualquer POI que
-  apontava pra ele.
-- **Pendência da Fase 4 resolvida:** `src/shared/lib/poiNodeLinking.ts`
-  (novo) — `relinkAllPois()` recalcula o `nearestNodeId` de todo POI pelo nó
-  de grafo mais próximo (distância percentual, `coordinates.percentDistance`).
-  Chamada automaticamente sempre que um nó é criado ou removido em
-  `GraphEditorView.tsx` — não é uma ação manual do admin, fica sempre
-  consistente sozinho.
-- `src/features/map/MapView.tsx`: adicionado suporte a `lines`/`onLineClick`
-  (arestas desenhadas como `L.polyline`), mantendo o componente genérico —
-  reaproveitado sem tocar na lógica de marcadores/anti-colisão de nomes.
-- `src/features/graph/EdgeWeightForm.tsx` (novo): painel de criar/editar
-  aresta — peso (com sugestão calculada pela escala, se configurada) e tipo
-  (corredor/escada/escada rolante/elevador).
+- `storage.ts`: `getGraphNodes`/`saveGraphNode`/`getGraphEdges`/
+  `saveGraphEdge`/`deleteGraphEdge` implementados. Adicionado também
+  `deleteGraphNode` (cascata: apaga arestas ligadas, desvincula POIs).
+- **Pendência da Fase 4 resolvida:** `src/shared/lib/poiNodeLinking.ts` —
+  `relinkAllPois()` recalcula `nearestNodeId` de todo POI pelo nó mais
+  próximo, chamada automaticamente ao criar/remover um nó.
+- `MapView.tsx`: suporte a `lines`/`onLineClick` (`L.polyline`).
+- `src/features/graph/EdgeWeightForm.tsx` (novo): peso + tipo da aresta.
 - `src/features/graph/GraphEditorView.tsx` (novo): tela em `/admin/grafo` —
-  dois modos alternáveis ("Adicionar nó" / "Conectar nós"); tocar num nó em
-  modo conexão seleciona-o (destaca na cor do admin), tocar num segundo nó
-  abre o formulário de peso (criando ou editando, se já existir aresta entre
-  os dois); tocar numa aresta (linha) também abre o formulário para editar;
-  tocar num nó em modo idle abre confirmação de exclusão (cascata explicada
-  acima).
-- `src/app/routes.tsx` / `AdminHome.tsx`: rota `/admin/grafo` linkada.
-- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
-  avisos. Mesma ressalva de sempre: sem como testar a interação real no mapa
-  (criar nó, conectar, editar peso, excluir com cascata) num navegador de
-  verdade neste ambiente — depende da validação manual.
+  "Adicionar nó" / "Conectar nós", editar/remover aresta, excluir nó.
+- Validado — 0 erros, 0 avisos.
 
 ## O que foi feito na Fase 6
-- `src/features/routing/calculateRoute.ts` (novo): monta um grafo
-  `graphology` a partir de `getGraphNodes()`/`getGraphEdges()` e calcula o
-  menor caminho entre dois nós com `dijkstra.bidirectional` (do namespace
-  `dijkstra` de `graphology-shortest-path` — **atenção documentada no próprio
-  código:** esse pacote também exporta um `bidirectional` solto na raiz do
-  módulo, mas é a versão sem peso (BFS); usar aquele por engano dá uma rota
-  "com menos saltos" em vez de "mais curta de verdade", sem nenhum erro de
-  tipo ou runtime pra avisar). Retorna `{ nodeIds, totalWeight }` ou `null` se
-  não houver caminho entre os nós (grafo desconectado nesse trecho).
-- **Esta fase não tem tela própria** — é só o motor de cálculo, consumido a
-  partir da Fase 7 (busca do passageiro) e da Fase 8 (instruções passo a
-  passo).
-- **Validação real, não só tipo/build:** diferente das fases anteriores (que
-  dependem de Leaflet/DOM, que não consigo rodar neste ambiente), o
-  roteamento é lógica pura — dava pra testar de verdade. Rodei um teste à
-  parte (não faz parte do projeto, foi só verificação) reproduzindo a mesma
-  lógica com dados inventados, cobrindo: (1) escolher o caminho de menor peso
-  total mesmo quando não é o de menos "saltos"/mais direto geometricamente,
-  (2) retornar `null` para nós sem conexão entre si, (3) origem igual ao
-  destino. Todos passaram.
-- Validado também com `npx tsc -b`, `npm run build` e `npm run lint` — 0
-  erros, 0 avisos.
+- `src/features/routing/calculateRoute.ts` (novo): grafo `graphology` +
+  `dijkstra.bidirectional` (namespace `dijkstra` — **atenção**: o pacote
+  também exporta um `bidirectional` solto na raiz, que é a versão SEM peso;
+  usar aquele por engano dá rota errada silenciosamente).
+- Sem tela própria — motor de cálculo puro.
+- **Validação real:** testes à parte (fora do projeto) confirmaram: menor
+  peso mesmo quando não é o caminho mais direto; `null` para nós
+  desconectados; origem = destino.
 
 ## O que foi feito na Fase 7
-- `src/shared/lib/poiNodeLinking.ts`: `findNearestNode` generalizada (antes só
-  aceitava POI, agora aceita qualquer `Point`) e exportada — reaproveitada
-  aqui pra achar o nó mais próximo do toque manual do passageiro no mapa.
-- `src/features/passenger/SearchBar.tsx` (novo): campo de busca + botão de QR
-  Code. O botão já existe visualmente (seção 2.2 pede isso na tela inicial),
-  mas não faz nada ainda — só um `title="Em breve"` — porque a leitura de QR é
-  a Fase 9. Ver decisão abaixo.
-- `src/features/passenger/SearchResultsList.tsx` (novo): lista de POIs que
-  batem com a busca, cada item tocável pra virar o destino.
-- `src/features/passenger/HomeScreen.tsx` (reescrita): duas visões dentro da
-  mesma tela — (1) busca (campo + chips de categoria + resultados) e (2) rota
-  (mapa com marcador de origem/destino, linha do caminho, distância
-  aproximada). Recalcula a rota automaticamente (`useEffect`) sempre que
-  destino, localização atual ou o grafo mudam.
-- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
-  avisos. Ressalva de sempre: interação real no mapa (busca, toque pra
-  indicar localização, linha da rota aparecendo) não testada num navegador de
-  verdade neste ambiente.
+- `poiNodeLinking.findNearestNode` generalizada (aceita qualquer `Point`).
+- `src/features/passenger/SearchBar.tsx`, `SearchResultsList.tsx` (novos).
+- `HomeScreen.tsx` reescrita: busca + rota no mapa.
+- Validado — 0 erros, 0 avisos.
 
-**Duas decisões importantes desta fase:**
+**Duas decisões desta fase:**
+1. Localização do passageiro seria manual (toque no mapa) até a Fase 9 —
+   resolvido na própria Fase 9 (ver abaixo), toque manual manteve-se como
+   alternativa.
+2. Categorias de busca = categorias reais dos POIs (`getCategories()`), não
+   a taxonomia fixa do documento original (Serviços/Banheiros/Alimentação/
+   Compras/Embarque/Atendimento/Emergência).
 
-1. **Localização manual temporária.** Calcular rota exige um ponto de
-   partida, mas o QR Code (que dá isso automaticamente) só chega na Fase 9.
-   Solução: o passageiro toca no mapa pra indicar "estou aqui"
-   (`originPoint`), e isso vira o ponto de partida do Dijkstra (via
-   `findNearestNode`). Plano para a Fase 9: o QR Code deve preencher esse
-   mesmo `originPoint` automaticamente — a ideia é manter o toque manual como
-   alternativa (ex: passageiro sem como escanear o código), não substituí-lo.
-2. **Categorias de busca = categorias reais dos POIs.** O documento original
-   descrevia uma taxonomia de busca fixa e separada ("Serviços: Banheiros,
-   Alimentação, Compras, Embarque, Atendimento, Emergência"), diferente das
-   13 categorias de POI do admin. Em vez de criar essa segunda taxonomia
-   paralela, os chips de categoria da busca usam `getCategories()` — as
-   mesmas categorias (de fábrica + personalizadas) que o admin já cadastrou
-   na Fase 4. Evita um filtro de busca que não bate com o que existe de
-   verdade no mapa, e como categorias já são livres desde a revisão da Fase
-   4, o admin pode criar "Emergência" como categoria própria se quiser.
-
-## Correções aplicadas após teste do usuário (ainda Fase 7)
-Você testou a Fase 7 e trouxe dois pontos, um de UX e um técnico importante:
-
-1. **Mapa só aparecia depois de escolher um destino.** `HomeScreen.tsx`
-   reescrito: o mapa agora fica **sempre visível**, ocupando a tela toda
-   abaixo do cabeçalho. Busca, chips de categoria, resultados e o card de
-   rota viram painéis flutuantes por cima do mapa (novo tier
-   `Z_INDEX.overlay = 1000` em `zIndex.ts`, acima dos controles do Leaflet
-   e abaixo de modais) — estilo Google Maps, igual ao print de referência do
-   documento original. `MapView.tsx`: `heightPx` agora aceita `number | string`
-   (usado como `"100%"` aqui, pra preencher o espaço flexível do pai).
-2. **A rota não saía do ponto exato — só do nó mais próximo.** Isso é um
-   problema real de design de roteamento indoor, não um bug pequeno.
-   `calculateRoute.ts` foi reescrito:
-   - Antes: `calculateRoute(fromNodeId, toNodeId)` — calculava entre nós.
-   - Agora: `calculateRoute(fromPoint, toPoint)` — recebe pontos geométricos
-     quaisquer (o toque do passageiro, a posição exata do POI) e encaixa
-     cada um na **aresta mais próxima** via projeção perpendicular sobre o
-     segmento (`projectPointOnSegment`), não no nó mais próximo. Um nó
-     virtual é inserido nesse ponto projetado (só para aquele cálculo, nunca
-     salvo no grafo), dividindo o peso da aresta original proporcionalmente
-     à posição do ponto nela. Caso especial: se origem e destino caem na
-     mesma aresta, calcula direto pela proporção do peso da aresta entre os
-     dois `t`, sem precisar do resto do grafo.
-   - Essa é a abordagem padrão de apps de navegação reais (Google Maps,
-     Waze, OSRM chamam isso de "snap to road/edge") — mais precisa que
-     adicionar pontos intermediários manualmente ou automaticamente ao
-     longo das arestas (a alternativa que você tinha cogitado), e não exige
-     nenhum trabalho extra do admin nem infla o grafo salvo.
-   - `RouteResult` mudou de `{ nodeIds, totalWeight }` para
-     `{ points, totalDistance, nodeIds }` — `points` já vem pronto pra
-     desenhar (inclui o ponto real de origem/destino nas pontas), sem a
-     `HomeScreen` precisar mais mapear ids de nó pra posição.
-   - `Poi.nearestNodeId`/`relinkAllPois()` (Fase 5) **continuam existindo**,
-     mas não são mais usados pelo cálculo de rota em si — o cálculo agora
-     usa a posição real do POI (`poi.position`) diretamente. Mantidos porque
-     ainda são úteis pra outras coisas (ex: o admin identificar POIs sem
-     nenhum caminho próximo).
-   - **Validação real:** essa lógica é geometria pura, testável fora do
-     navegador. Rodei 3 testes à parte (não fazem parte do projeto):
-     (1) projeção perpendicular cai no ponto certo do corredor; (2) origem e
-     destino na mesma aresta — confirmei que o caso especial dá o resultado
-     correto (peso proporcional ao trecho real, ~50 de uma aresta de 100),
-     enquanto a via genérica pelo grafo (sem o caso especial) dá um valor
-     inflado (~90, porque teria que ir até um nó e voltar) — foi assim que
-     descobri que o caso especial era necessário, não só uma otimização;
-     (3) origem e destino em arestas diferentes de um corredor em L,
-     confirmando que o caminho passa pelo nó compartilhado com o peso certo.
-
-Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
-avisos.
-
-
-- Adicionei `graphology-types` como dependência direta, não listada
-  explicitamente na seção 3 do spec. É peer dependency obrigatória de
-  `graphology-shortest-path` (usada para tipar o grafo); sem ela o build
-  falha. Não é uma biblioteca nova, é parte do ecossistema `graphology` já
-  escolhido.
-- Criei `src/shared/types/index.ts` já na Fase 1, mesmo o roadmap não citando
-  esse arquivo explicitamente nela — a seção 6 do spec já lista esse arquivo
-  como parte da estrutura de pastas, e os stubs de `storage.ts` precisavam de
-  tipos corretos. Não adianta lógica de negócio, só o contrato de dados.
-- `App.tsx` foi movido para `src/app/App.tsx` (fora do padrão do Vite, que
-  cria em `src/App.tsx`), para bater com a estrutura da seção 6. `main.tsx`
-  ajustado.
-- Criei `src/features/admin/AdminHome.tsx`, não listado na seção 6 original —
-  é a tela-índice/menu do módulo admin, necessária porque nenhuma das telas
-  reais de admin existia ainda quando a Fase 2 foi implementada.
-- O `role` no Zustand não é persistido entre recarregamentos de página. Se o
-  navegador recarregar dentro de `/admin` ou `/passageiro`, o guard
-  `RequireRole` manda de volta pro RoleGate. Escolhido para simplificar o
-  fluxo de simulação (troca de perfil sempre passa por escolha explícita).
-- Criei `src/shared/lib/image.ts`, não listado na seção 6 original — função
-  utilitária pura (ler arquivo → comprimir → dataURL), separada de
-  `MapUpload.tsx` porque acabou sendo reaproveitada depois pelo upload de
-  ícone de POI (Fase 4).
-- MVP tem um único `MapImage`/`Floor` fixos: `storage.saveMap` força
-  `id: 'map-default'`, e `getDefaultFloor` sempre retorna/cria
-  `floor-default`. Intencional (seção 9 do spec) — só vira múltiplos
-  registros se decidirmos implementar múltiplos andares no futuro (fora do
-  MVP, seção 10).
-- **DESVIO:** `Poi.nearestNodeId` era `string` obrigatório na seção 5
-  original e virou `nearestNodeId?: string` (opcional). Motivo: o roadmap
-  coloca a Fase 4 (criar POIs) antes da Fase 5 (criar o grafo) — o primeiro
-  POI criado não tem nó nenhum pra apontar ainda. Resolvido na Fase 5 com
-  `relinkAllPois()` (vínculo automático) — ver "O que foi feito na Fase 5".
-- Criei `src/shared/lib/id.ts`, `src/shared/lib/zIndex.ts` e
-  `src/shared/lib/poiIconHtml.tsx` — pequenas adições utilitárias não listadas
-  na seção 6 original, todas de baixo risco (ver detalhes nas seções de cada
-  fase acima).
-- **DESVIO (revisão da Fase 4):** `PoiCategory` deixou de ser union fechada de
-  13 valores e virou `string` livre, com um novo tipo `Category` (`{id, label,
-  color, isCustom}`) pra suportar categorias personalizadas — ver seção
-  "Correções e melhorias" acima para o detalhe completo.
-- Para "Escolher ícone" (seção 2.1), a solução final (depois da revisão) é:
-  ícone automático por categoria como padrão, com opção de upload de ícone
-  customizado por local (`Poi.iconUrl`) sobrepondo o ícone padrão quando
-  presente. A primeira versão da Fase 4 tinha só o ícone automático; o upload
-  foi adicionado depois, a pedido do usuário.
-- Criei `src/shared/lib/poiNodeLinking.ts` na Fase 5 (não listado na seção 6
-  original) — resolve o desvio do `nearestNodeId` acima.
-- **DESVIO (Fase 7):** localização do passageiro é manual (toque no mapa) até
-  a Fase 9 implementar QR Code — ver "Duas decisões importantes desta fase"
-  na seção da Fase 7.
-- **DESVIO (Fase 7):** categorias de busca do passageiro usam as mesmas
-  categorias do admin (`getCategories()`), não a taxonomia fixa do documento
-  original — ver mesma seção acima.
+## Correções aplicadas após 1º teste do usuário (ainda Fase 7)
+1. **Mapa só aparecia depois de escolher destino.** `HomeScreen.tsx`
+   reescrito: mapa sempre visível, busca/resultados/rota viram painéis
+   flutuantes por cima (`Z_INDEX.overlay = 1000`, novo tier). `MapView.tsx`:
+   `heightPx` aceita `number | string` (`"100%"`).
+2. **Rota não saía do ponto exato, só do nó mais próximo.**
+   `calculateRoute.ts` reescrito: `(fromPoint, toPoint)` em vez de
+   `(fromNodeId, toNodeId)` — encaixa cada ponto na **aresta** mais próxima
+   (projeção perpendicular, `projectPointOnSegment`), não no nó mais
+   próximo, via um nó virtual inserido só pro cálculo (nunca salvo). Técnica
+   padrão de apps de navegação reais ("snap to edge/road"). Caso especial
+   quando origem/destino caem na mesma aresta. `Poi.nearestNodeId`/
+   `relinkAllPois()` continuam existindo, mas não são mais usados pelo
+   cálculo de rota em si.
+   - **Validação real:** 3 testes à parte confirmaram a projeção, o caso de
+     mesma aresta (usar o peso real da aresta, não a distância geométrica —
+     descoberto testando que a via genérica pelo grafo dava um valor 80%
+     maior que o correto) e o caso de arestas diferentes num corredor em L.
 
 ## Correções aplicadas após 2º teste do usuário (ainda Fase 7)
-Você testou de novo e trouxe dois pontos:
-
-1. **A rota cortava por cima de construções/obstáculos.** Causa raiz: o
-   encaixe na aresta mais próxima (correção anterior) não tinha limite de
-   distância — se o destino estivesse longe de qualquer trecho do grafo
-   desenhado pelo admin, o código encaixava na aresta mais próxima *de
-   qualquer jeito*, por mais distante que fosse, e desenhava uma linha reta
-   até lá (que não segue corredor nenhum, é só geometria — por isso cortava
-   por cima de paredes). Corrigido com `MAX_SNAP_DISTANCE_PCT` (12, em
-   unidades percentuais do mapa) em `calculateRoute.ts`: se a aresta mais
-   próxima estiver mais longe que isso, a rota é **recusada** (motivo
-   `'muito-longe'`) em vez de desenhar algo sem sentido. Isso é o
-   comportamento certo: se um POI está longe de qualquer caminho modelado,
-   o problema é o grafo do admin estar incompleto ali, não algo que o código
-   deveria "inventar" uma linha reta pra disfarçar. **Ação recomendada pro
-   admin:** estender os nós/arestas do grafo até perto de cada local
-   cadastrado, especialmente os mais afastados do corredor principal.
-   `calculateRoute` mudou de retornar `RouteResult | null` para um tipo
-   `RouteCalculation` (`{ok:true,result} | {ok:false,reason}`), com 3 motivos
-   possíveis (`sem-caminhos`, `muito-longe`, `sem-rota`) — a `HomeScreen`
-   agora mostra uma mensagem diferente pra cada um, em vez de um erro
-   genérico único.
-2. **Locais só apareciam depois de escolher um destino pela busca; pedido:
-   sempre visíveis + clicar no ícone no mapa já traça rota (como Google
-   Maps).** `HomeScreen.tsx`: agora sempre mostra todos os POIs no mapa
-   (`browseMarkers`) enquanto nenhum destino foi escolhido — cada um
-   clicável (`onMarkerClick` do MapView), definindo aquele POI como destino
-   direto, sem precisar passar pela busca. Assim que um destino é definido
-   (seja pela busca ou pelo clique no mapa), os outros POIs somem e só
-   origem+destino ficam visíveis — mesmo princípio de anti-poluição já usado
-   nos mapas do admin.
-   - **Validação real do limite de distância:** rodei um teste à parte
-     reproduzindo um cenário parecido com o do seu print (grafo cobrindo só
-     uma pequena região, destino bem longe dele) — confirmei que o ponto
-     distante é corretamente recusado (55.4 de distância vs limite de 12), e
-     que um ponto próximo (5.0) continua sendo aceito normalmente.
-
-Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
-avisos.
+1. **Rota cortava por cima de construções.** Causa: encaixe na aresta mais
+   próxima sem limite de distância. Corrigido com `MAX_SNAP_DISTANCE_PCT`
+   (12): acima disso, a rota é recusada (`'muito-longe'`) em vez de desenhar
+   uma linha sem sentido. `calculateRoute` passou a retornar
+   `RouteCalculation` (`{ok,result|reason}`) com 3 motivos de falha
+   (`sem-caminhos`, `muito-longe`, `sem-rota`).
+2. **Locais só apareciam depois de buscar; pedido: sempre visíveis + clique
+   no ícone traça rota.** `HomeScreen.tsx`: `browseMarkers` (todos os POIs,
+   sempre visíveis em modo busca) + `onMarkerClick` define destino direto.
+   - **Validação real:** teste à parte confirmou o limite rejeitando um
+     ponto a 55 de distância e aceitando um a 5.
 
 ## Melhorias aplicadas após 3º teste do usuário (ainda Fase 7)
-Duas melhorias de UX pedidas em cima do que já estava funcionando:
+1. Filtro de categoria passou a afetar também o mapa (`browseMarkers`), não
+   só a lista de busca.
+2. `src/features/passenger/CategoryFilterModal.tsx` (novo): grade responsiva
+   com todas as categorias, aberta por um botão "Ver todas" quando há mais
+   de `MAX_INLINE_CATEGORIES` (4) — evita poluir a fileira de chips.
 
-1. **Filtro de categoria só afetava a lista de busca, não o mapa.** Agora
-   `browseMarkers` (os POIs mostrados no mapa em modo "busca") também filtra
-   pela categoria selecionada — igual já acontecia com `filteredPois` (a
-   lista). Selecionar "Alimentação" agora esconde os outros POIs do mapa
-   também, não só da lista.
-2. **Fileira de categorias precisava ser responsiva / não poluir a tela.**
-   `src/features/passenger/CategoryFilterModal.tsx` (novo): bottom sheet com
-   grade responsiva (`repeat(auto-fill, minmax(84px, 1fr))`, mesmo padrão do
-   seletor de categoria do admin) mostrando TODAS as categorias usadas, mais
-   uma opção "Todos os locais" pra limpar o filtro. Na tela principal, a
-   fileira de chips agora mostra só até `MAX_INLINE_CATEGORIES` (4) direto,
-   com um botão "Ver todas" no final que abre o modal quando há mais
-   categorias do que isso. Detalhe: se a categoria ativa não estiver entre as
-   4 visíveis (ex: foi selecionada pelo modal), ela é trazida pra fileira
-   mesmo assim, pra sempre dar pra ver/desmarcar o filtro sem reabrir o
-   modal.
+## Fase 8 — implementada e depois revertida
+A Fase 8 (navegação passo a passo: `calculateRoute` ganhando `segments`
+tipados, `generateInstructions.ts`, `StepByStepView.tsx`, botão "Ver passo a
+passo" na `HomeScreen`) foi implementada e validada (inclusive com testes
+reais de geometria/mesclagem de instruções, incluindo a convenção de
+esquerda/direita no nosso sistema de coordenadas com y crescendo pra baixo).
 
-Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
-avisos.
+Depois de conversar sobre o valor real disso pro projeto, você decidiu
+remover — o app não tem localização contínua (sem GPS/QR narrando em tempo
+real), então instruções em texto acabavam sendo só uma descrição estática da
+rota, redundante com a linha já desenhada no mapa. O diferencial técnico real
+do projeto (grafo + Dijkstra + encaixe preciso na aresta) já não dependia
+disso.
+
+**Revertido por completo:** `generateInstructions.ts` e `StepByStepView.tsx`
+apagados; `calculateRoute.ts` voltou a não ter `segments` (RouteResult
+voltou a `{ points, totalDistance, nodeIds }`); `HomeScreen.tsx` voltou a não
+ter o botão "Ver passo a passo" nem o estado/import relacionados. Não ficou
+nenhum código morto — se isso for reconsiderado no futuro, dá pra
+reconstruir do zero olhando esta nota.
+
+## O que foi feito na Fase 9
+- `storage.ts`: `getQrCodeLinks`/`saveQrCodeLink` implementados. Adicionado
+  também `deleteQrCodeLink` (não estava nos stubs originais — mesmo padrão
+  de CRUD completo já usado em POIs e grafo).
+- `src/features/qrcode/QrGenerator.tsx` (novo): gera e mostra o QR Code de
+  um POI ou nó — reaproveitado nos dois fluxos decididos ainda no
+  planejamento (seção 2.1 do spec: "Gerar QR Code" em vez de "Associar QR
+  Code"). Valor codificado: `CLICKWAY:LOC:{code}` (prefixo pra distinguir de
+  QR Codes de outros apps na hora de escanear). Botão "Baixar / Imprimir" e
+  "Gerar novo código" (invalida o QR já impresso).
+  - **Fluxo rápido** (via POI): `PoiFormModal.tsx` ganhou a seção de QR
+    Code, visível só quando `isEditing` (precisa de um id já salvo). Novo
+    prop `poiId` repassado por `PoiEditor.tsx`.
+  - **Fluxo avançado** (via nó do grafo): o painel que já existia em
+    `GraphEditorView.tsx` (ao tocar num nó em modo idle) ganhou a seção de
+    QR Code, junto da opção de excluir o nó — cobre pontos de localização
+    pura (corredores, cruzamentos) que não são POIs.
+- `src/features/admin/QrCodeManager.tsx` (novo): tela em `/admin/qrcodes` —
+  lista todos os QR Codes já gerados (prévia + local/nó de destino +
+  excluir). Não gera QR Code aqui, só visão geral — geração acontece nos
+  dois fluxos acima.
+- `src/features/qrcode/QrScanner.tsx` (novo): usa `html5-qrcode`
+  (`Html5Qrcode`, `facingMode: 'environment'` pra câmera traseira) pra ler o
+  QR Code, resolve pro ponto real (posição do POI ou do nó) e entrega via
+  callback `onLocationFound`. QR Codes que não começam com o prefixo do
+  Click Way são ignorados silenciosamente (continua escaneando); códigos com
+  prefixo certo mas não encontrados no armazenamento mostram uma mensagem
+  ("não corresponde a nenhum local cadastrado").
+- `SearchBar.tsx`: botão de QR Code (antes só visual, `opacity: 0.6`, "Em
+  breve") virou funcional — abre o `QrScanner`.
+- `HomeScreen.tsx`:
+  - Ao escanear com sucesso, preenche `originPoint` automaticamente (mesmo
+    mecanismo que já existia pro toque manual — QR só automatiza o mesmo
+    fluxo, não substitui).
+  - **Mudança de UX:** tocar no mapa ou escanear QR pra indicar "estou aqui"
+    agora funciona a qualquer momento (antes só era possível depois de
+    escolher um destino) — reflete melhor o fluxo real (passageiro entra no
+    terminal, escaneia pra saber onde está, só depois decide pra onde ir).
+    O marcador "Você está aqui" aparece também no modo busca agora, não só
+    no modo rota.
+  - Botão de QR Code adicional na instrução de localização (banner que pede
+    "toque no mapa"), já que a barra de busca principal (onde fica o botão
+    de QR) some quando um destino já foi escolhido.
+- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+  avisos.
+- **Validação real parcial:** a geração de QR Code (biblioteca `qrcode`) é
+  testável fora do navegador — rodei um teste à parte confirmando que
+  `QRCode.toDataURL()` gera uma imagem PNG válida a partir do texto
+  esperado. **A leitura por câmera (`html5-qrcode`) não dá pra testar neste
+  ambiente** — depende de hardware de câmera real e permissão do navegador,
+  só valida de verdade no seu celular/computador.
+
+**Nota sobre o tamanho do build:** o bundle deu um salto grande nesta fase
+(de ~717KB pra ~1117KB minificado) por causa do `html5-qrcode`, que é uma
+biblioteca pesada (inclui decodificação própria + fallback zxing). Já era um
+item registrado pra Fase 12 (Polimento) considerar `import()` dinâmico só
+quando as telas que usam Leaflet/QR são abertas — agora com mais peso ainda
+nessa balança.
+
+## Decisões tomadas ao longo do caminho (lista única, consolidada)
+- Adicionei `graphology-types` como dependência direta, não listada na seção
+  3 do spec — peer dependency obrigatória do `graphology-shortest-path`.
+- Criei `src/shared/types/index.ts` já na Fase 1 (a seção 6 já listava esse
+  arquivo na estrutura de pastas; os stubs de `storage.ts` precisavam de
+  tipos corretos).
+- `App.tsx` movido para `src/app/App.tsx` (Vite cria em `src/App.tsx` por
+  padrão); `main.tsx` ajustado.
+- Criei `src/features/admin/AdminHome.tsx` (não listado na seção 6) — tela-
+  índice do módulo admin.
+- `role` no Zustand não é persistido entre recarregamentos — recarregar
+  dentro de `/admin` ou `/passageiro` volta pro RoleGate.
+- Criei `src/shared/lib/image.ts` (não listado na seção 6) — reaproveitado
+  depois pelo upload de ícone de POI.
+- MVP tem um único `MapImage`/`Floor` fixos (`map-default`/`floor-default`).
+- **DESVIO:** `Poi.nearestNodeId` virou opcional (Fase 4 cria POIs antes da
+  Fase 5 criar o grafo) — resolvido com `relinkAllPois()` (Fase 5).
+- Criei `src/shared/lib/id.ts`, `zIndex.ts`, `poiIconHtml.tsx` — utilitários
+  não listados na seção 6, baixo risco.
+- **DESVIO (revisão Fase 4):** `PoiCategory` virou `string` livre + novo tipo
+  `Category`, pra categorias personalizadas.
+- Ícone de POI: automático por categoria, com upload customizado
+  sobrepondo quando presente.
+- Criei `src/shared/lib/poiNodeLinking.ts` (Fase 5).
+- **DESVIO (Fase 7):** localização do passageiro manual até virar automática
+  também via QR na Fase 9 (toque manual mantido como alternativa).
+- **DESVIO (Fase 7):** categorias de busca = categorias do admin.
+- **DESVIO (revisão Fase 7, 1º teste):** `calculateRoute` passou a receber
+  pontos em vez de ids de nó, com encaixe na aresta mais próxima.
+- **DESVIO (revisão Fase 7, 2º teste):** `calculateRoute` passou a retornar
+  `RouteCalculation` com motivo de falha, e ganhou `MAX_SNAP_DISTANCE_PCT`.
+- Criei `src/features/passenger/CategoryFilterModal.tsx` (revisão Fase 7, 3º
+  teste) — não listado na seção 6.
+- **Fase 8 implementada e depois revertida por completo** — ver seção
+  própria acima. Não ficou nenhum resquício no código.
+- Criei `src/features/admin/QrCodeManager.tsx` (Fase 9) — não listado
+  explicitamente na seção 6 com esse nome exato, mas a ideia de uma "visão
+  geral de todos os QR gerados" já estava prevista desde o planejamento.
+- Adicionei `deleteQrCodeLink` (Fase 9) — não estava nos stubs originais,
+  mesmo padrão de CRUD completo das demais entidades.
+- **Mudança de UX (Fase 9):** indicar "estou aqui" (toque ou QR) passou a
+  funcionar a qualquer momento, não só depois de escolher destino.
 
 ## Problemas conhecidos / pendências
-- O filtro de categoria afetando o mapa e o modal "Ver todas as categorias"
-  ainda não foram testados por você no navegador.
-- Se o admin tiver POIs cadastrados longe de qualquer nó/aresta do grafo,
-  a rota vai ser recusada com a mensagem "muito longe" — isso é esperado
-  (ver correção acima), não é bug. A solução é o admin estender o grafo.
-- Bundle final passou de 500KB minificado (aviso do Vite) — não bloqueante,
-  possível item de polimento na Fase 12.
-- Funções de domínio restantes em `storage.ts` (QR, viagens, notificações)
+- A Fase 9 (QR Code) ainda não foi testada por você. A geração de imagem foi
+  validada com teste real fora do navegador; a leitura por câmera não dá pra
+  testar neste ambiente de jeito nenhum — só no seu dispositivo.
+- Se o admin tiver POIs cadastrados longe de qualquer nó/aresta do grafo, a
+  rota é recusada com "muito longe" — esperado (Fase 7, 2º teste), não é bug.
+- Bundle final em ~1117KB minificado (aviso do Vite) — não bloqueante, mas
+  cresceu bastante com o `html5-qrcode`; possível item de polimento na Fase
+  12 (code splitting).
+- Funções de domínio restantes em `storage.ts` (viagens, notificações)
   seguem como stub — esperado até as fases correspondentes.
-- O botão de QR Code na tela do passageiro é só visual por enquanto (Fase 9
-  implementa a leitura de verdade).
 
 ## Última atualização
-31/07/2026
+04/08/2026

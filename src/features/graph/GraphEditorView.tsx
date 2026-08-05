@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import AppHeader from '../../shared/components/AppHeader';
 import MapView, { type MapViewLine, type MapViewMarker } from '../map/MapView';
 import EdgeWeightForm from './EdgeWeightForm';
+import QrGenerator from '../qrcode/QrGenerator';
 import {
   getMap,
   getGraphNodes,
@@ -172,7 +173,7 @@ function GraphEditorView() {
     }
   }
 
-  let statusText = `${nodes.length} nó(s), ${edges.length} conexão(ões). Toque num nó para excluí-lo.`;
+  let statusText = `${nodes.length} nó(s), ${edges.length} conexão(ões). Toque num nó para gerar QR Code ou excluí-lo.`;
   if (mode === 'adding-node') statusText = 'Toque no mapa para adicionar nós.';
   else if (mode === 'connecting' && !connectingFirstNodeId) statusText = 'Toque no primeiro nó para conectar.';
   else if (mode === 'connecting' && connectingFirstNodeId) statusText = 'Agora toque no segundo nó.';
@@ -276,19 +277,30 @@ function GraphEditorView() {
             {nodeToDelete && (
               <div
                 style={{
-                  border: '1px solid var(--color-severity-urgente)',
-                  background: '#fbe9e7',
+                  border: '1px solid var(--color-border)',
                   borderRadius: '12px',
                   padding: '14px 16px',
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '10px',
+                  gap: '12px',
                 }}
               >
-                <span style={{ fontSize: '0.9rem' }}>
-                  Excluir este nó? As conexões que usam ele também serão removidas, e os
-                  locais vinculados a ele serão religados ao nó mais próximo automaticamente.
-                </span>
+                <strong style={{ fontSize: '0.9rem' }}>
+                  Nó {nodes.findIndex((node) => node.id === nodeToDelete.id) + 1}
+                </strong>
+
+                <QrGenerator
+                  targetType="node"
+                  targetId={nodeToDelete.id}
+                  targetLabel={`Nó ${nodes.findIndex((node) => node.id === nodeToDelete.id) + 1}`}
+                />
+
+                <div>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+                    Excluir este nó? As conexões que usam ele também serão removidas, e os
+                    locais vinculados a ele serão religados ao nó mais próximo automaticamente.
+                  </span>
+                </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
                     type="button"
@@ -303,7 +315,7 @@ function GraphEditorView() {
                       fontWeight: 600,
                     }}
                   >
-                    Excluir
+                    Excluir nó
                   </button>
                   <button
                     type="button"
@@ -316,7 +328,7 @@ function GraphEditorView() {
                       fontSize: '0.85rem',
                     }}
                   >
-                    Cancelar
+                    Fechar
                   </button>
                 </div>
               </div>

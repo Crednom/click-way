@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import PoiCategoryIcon from '../../shared/components/PoiCategoryIcon';
+import QrGenerator from '../qrcode/QrGenerator';
 import { getCategories, saveCustomCategory } from '../../shared/lib/storage';
 import { generateId } from '../../shared/lib/id';
 import { loadAndCompressImage } from '../../shared/lib/image';
@@ -25,13 +26,15 @@ export interface PoiFormValues {
 
 interface PoiFormModalProps {
   initial?: PoiFormValues;
+  /** Id do POI sendo editado — presente só quando isEditing, usado pro "Gerar QR Code" (fluxo rápido, seção 2.1 do spec). */
+  poiId?: string;
   isEditing: boolean;
   onSave: (values: PoiFormValues) => void;
   onDelete?: () => void;
   onClose: () => void;
 }
 
-function PoiFormModal({ initial, isEditing, onSave, onDelete, onClose }: PoiFormModalProps) {
+function PoiFormModal({ initial, poiId, isEditing, onSave, onDelete, onClose }: PoiFormModalProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState(initial?.name ?? '');
   const [category, setCategory] = useState<PoiCategory | ''>(initial?.category ?? '');
@@ -337,6 +340,8 @@ function PoiFormModal({ initial, isEditing, onSave, onDelete, onClose }: PoiForm
             }}
           />
         </label>
+
+        {isEditing && poiId && <QrGenerator targetType="poi" targetId={poiId} targetLabel={name || 'este local'} />}
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
           <button

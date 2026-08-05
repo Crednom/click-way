@@ -281,19 +281,33 @@ export function saveTrip(_trip: Trip): void {
 }
 
 // ---------------------------------------------------------------------------
-// QR Codes — implementação chega na Fase 9 (QR Code).
+// QR Codes — implementado na Fase 9.
 // ---------------------------------------------------------------------------
 
+const QR_CODE_LINKS_KEY = 'qrCodeLinks';
+
 export function getQrCodeLinks(): QrCodeLink[] {
-  throw new Error(
-    'storage.getQrCodeLinks: não implementado ainda (ver Fase 9 do roadmap)',
-  );
+  return readJson<QrCodeLink[]>(QR_CODE_LINKS_KEY, []);
 }
 
-export function saveQrCodeLink(_link: QrCodeLink): void {
-  throw new Error(
-    'storage.saveQrCodeLink: não implementado ainda (ver Fase 9 do roadmap)',
-  );
+export function saveQrCodeLink(link: QrCodeLink): void {
+  const links = getQrCodeLinks();
+  const index = links.findIndex((existing) => existing.id === link.id);
+  if (index >= 0) {
+    links[index] = link;
+  } else {
+    links.push(link);
+  }
+  writeJson(QR_CODE_LINKS_KEY, links);
+}
+
+/**
+ * Não estava nos stubs originais da Fase 1 — adição da Fase 9, mesmo padrão
+ * de CRUD completo já usado em POIs e no grafo (Fases 4/5).
+ */
+export function deleteQrCodeLink(linkId: string): void {
+  const links = getQrCodeLinks().filter((link) => link.id !== linkId);
+  writeJson(QR_CODE_LINKS_KEY, links);
 }
 
 // ---------------------------------------------------------------------------

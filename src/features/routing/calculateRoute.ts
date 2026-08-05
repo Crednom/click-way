@@ -23,7 +23,18 @@
 // uma solução geométrica pra disfarçar.
 //
 // Não depende de nenhuma tela — puro cálculo, consumido pela Fase 7 (busca
-// do passageiro) e pela Fase 8 (instruções passo a passo).
+// do passageiro).
+//
+// NOTA: esta versão já teve um campo `segments` (trechos tipados por
+// corredor/escada/etc), adicionado na Fase 8 para alimentar instruções de
+// navegação passo a passo em texto. A funcionalidade de instruções foi
+// removida a pedido do usuário (não agregava o suficiente pro escopo do MVP,
+// já que o app não tem localização contínua — sem isso, texto passo a passo
+// vira só uma descrição estática da rota, redundante com a linha já
+// desenhada no mapa). `segments` foi removido de volta junto — não faz
+// sentido manter um campo que não serve pra mais nada; se algum dia isso for
+// reconsiderado, `RouteSegment` pode ser recriado do zero, olhando o
+// histórico do PROGRESS.md (Fase 8).
 
 import Graph from 'graphology';
 import { dijkstra } from 'graphology-shortest-path';
@@ -40,7 +51,7 @@ export interface RouteResult {
    * (ver ressalva em `EdgeWeightForm.tsx`, Fase 5).
    */
   totalDistance: number;
-  /** Ids dos nós reais do grafo atravessados (sem os pontos virtuais de origem/destino) — útil pra Fase 8 relacionar trechos com o tipo de aresta (corredor/escada/etc). */
+  /** Ids dos nós reais do grafo atravessados (sem os pontos virtuais de origem/destino). */
   nodeIds: string[];
 }
 
