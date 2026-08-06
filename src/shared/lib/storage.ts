@@ -22,10 +22,8 @@ import type {
   GraphEdge,
   GraphNode,
   MapImage,
-  Platform,
   Poi,
   QrCodeLink,
-  Sector,
   Trip,
 } from '../types';
 import { BUILTIN_CATEGORIES } from './poiCategories';
@@ -252,32 +250,34 @@ export function deleteGraphEdge(edgeId: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Setores e plataformas — implementação chega na Fase 10 (Viagens), junto do
-// cadastro de viagens (ambos fazem parte da mesma tela de admin).
+// Viagens — implementado na Fase 10. `getSectors`/`getPlatforms` foram
+// removidos daqui (não só deixados como stub) — ver DESVIO documentado em
+// shared/types/index.ts: a divisão Sector/Platform nunca virou uma fase
+// própria, e o POI categoria 'plataforma' (Fase 4) já cobre a mesma
+// necessidade sem duplicar o conceito.
 // ---------------------------------------------------------------------------
 
-export function getSectors(): Sector[] {
-  throw new Error(
-    'storage.getSectors: não implementado ainda (ver Fase 10 do roadmap)',
-  );
-}
-
-export function getPlatforms(): Platform[] {
-  throw new Error(
-    'storage.getPlatforms: não implementado ainda (ver Fase 10 do roadmap)',
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Viagens — implementação chega na Fase 10 (Viagens).
-// ---------------------------------------------------------------------------
+const TRIPS_KEY = 'trips';
 
 export function getTrips(): Trip[] {
-  throw new Error('storage.getTrips: não implementado ainda (ver Fase 10 do roadmap)');
+  return readJson<Trip[]>(TRIPS_KEY, []);
 }
 
-export function saveTrip(_trip: Trip): void {
-  throw new Error('storage.saveTrip: não implementado ainda (ver Fase 10 do roadmap)');
+export function saveTrip(trip: Trip): void {
+  const trips = getTrips();
+  const index = trips.findIndex((existing) => existing.id === trip.id);
+  if (index >= 0) {
+    trips[index] = trip;
+  } else {
+    trips.push(trip);
+  }
+  writeJson(TRIPS_KEY, trips);
+}
+
+/** Não estava nos stubs originais — mesmo padrão de CRUD completo já usado nas demais entidades. */
+export function deleteTrip(tripId: string): void {
+  const trips = getTrips().filter((trip) => trip.id !== tripId);
+  writeJson(TRIPS_KEY, trips);
 }
 
 // ---------------------------------------------------------------------------

@@ -22,7 +22,7 @@ const ADMIN_SECTIONS: AdminMenuItem[] = [
   { label: 'Locais', phaseLabel: 'Fase 4', path: '/admin/locais' },
   { label: 'Grafo', phaseLabel: 'Fase 5', path: '/admin/grafo' },
   { label: 'QR Codes', phaseLabel: 'Fase 9', path: '/admin/qrcodes' },
-  { label: 'Viagens', phaseLabel: 'Fase 10' },
+  { label: 'Viagens', phaseLabel: 'Fase 10', path: '/admin/viagens' },
   { label: 'Notificações', phaseLabel: 'Fase 11' },
 ];
 

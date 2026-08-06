@@ -1,7 +1,7 @@
 # Progresso do Click Way
 
 ## Fase atual
-Fase 10 — Viagens (cadastro: empresa, destino, horário, plataforma, status; exibição ao tocar numa plataforma no mapa do passageiro)
+Fase 11 — Notificações (criação com severidade, simulação pelo admin, recebimento como toast colorido no passageiro, recálculo de rota em troca de plataforma)
 
 ## Concluído
 - [x] Fase 1 — Setup do projeto
@@ -11,9 +11,9 @@ Fase 10 — Viagens (cadastro: empresa, destino, horário, plataforma, status; e
 - [x] Fase 5 — Admin: grafo
 - [x] Fase 6 — Roteamento (Dijkstra)
 - [x] Fase 7 — Passageiro: busca e rota
-- [x] ~~Fase 8 — Navegação passo a passo~~ (implementada e depois **revertida** a pedido do usuário — ver seção própria abaixo)
+- [x] ~~Fase 8 — Navegação passo a passo~~ (implementada e depois **revertida** a pedido do usuário — ver seção própria)
 - [x] Fase 9 — QR Code
-- [ ] Fase 10 — Viagens
+- [x] Fase 10 — Viagens
 - [ ] Fase 11 — Notificações
 - [ ] Fase 12 — Polimento
 
@@ -277,7 +277,43 @@ item registrado pra Fase 12 (Polimento) considerar `import()` dinâmico só
 quando as telas que usam Leaflet/QR são abertas — agora com mais peso ainda
 nessa balança.
 
-## Decisões tomadas ao longo do caminho (lista única, consolidada)
+## O que foi feito na Fase 10
+- **DESVIO no modelo de dados:** `Sector` e `Platform` (entidades separadas
+  na seção 5 original) foram removidas. Nunca viraram uma fase própria no
+  roadmap, e desde a Fase 4 já existe a categoria de POI 'plataforma' —
+  manter `Platform` como entidade separada duplicaria o mesmo conceito
+  (nome/label de uma plataforma) em dois lugares. `Trip.platformId` agora
+  referencia diretamente o id de um `Poi` com `category === 'plataforma'`.
+- `storage.ts`: `getSectors`/`getPlatforms` removidos (não deixados como
+  stub — não fazem mais sentido dado o desvio acima). `getTrips`/`saveTrip`
+  implementados; adicionado também `deleteTrip` (não estava nos stubs
+  originais, mesmo padrão de CRUD completo das demais entidades).
+- `src/shared/lib/tripStatus.ts` (novo): rótulo + cor de cada um dos 5
+  status de viagem — reaproveitado pelo admin e pelo passageiro, mesmo
+  padrão de `poiCategories.ts`.
+- `src/features/admin/TripFormModal.tsx` (novo): bottom sheet de
+  criar/editar viagem — empresa, destino, horário (`<input type="time">`),
+  plataforma (select com os POIs categoria 'plataforma') e status.
+- `src/features/admin/TripManager.tsx` (novo): tela em `/admin/viagens` —
+  lista de viagens cadastradas (com badge de status colorido) + botão "Nova
+  viagem". Se não houver nenhum POI categoria 'plataforma' ainda, mostra
+  aviso com link pra `/admin/locais` em vez de uma tela vazia sem contexto.
+- `src/features/passenger/TripInfoSheet.tsx` (novo): bottom sheet com
+  Empresa/Destino/Horário/Status (exatamente como pedido na seção 2.2 do
+  spec), com um botão "Traçar rota até aqui".
+- `HomeScreen.tsx`: a lógica de seleção de POI foi unificada num só ponto de
+  entrada (`handlePoiSelected`, usado tanto pelo clique no mapa quanto pela
+  busca) — se o local tocado for uma plataforma **com viagem cadastrada**,
+  mostra a ficha de informações antes de traçar rota; caso contrário
+  (qualquer outro local, ou uma plataforma sem viagem associada), define
+  como destino direto, como já acontecia.
+- `src/app/routes.tsx` / `AdminHome.tsx`: rota `/admin/viagens` linkada.
+- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+  avisos. Ressalva de sempre: interação real (formulário de viagem, tocar
+  numa plataforma pra ver a ficha) não testada num navegador de verdade
+  neste ambiente.
+
+
 - Adicionei `graphology-types` como dependência direta, não listada na seção
   3 do spec — peer dependency obrigatória do `graphology-shortest-path`.
 - Criei `src/shared/types/index.ts` já na Fase 1 (a seção 6 já listava esse
@@ -319,18 +355,23 @@ nessa balança.
   mesmo padrão de CRUD completo das demais entidades.
 - **Mudança de UX (Fase 9):** indicar "estou aqui" (toque ou QR) passou a
   funcionar a qualquer momento, não só depois de escolher destino.
+- **DESVIO (Fase 10):** `Sector`/`Platform` removidos do modelo de dados —
+  `Trip.platformId` referencia diretamente um `Poi` categoria 'plataforma'.
+  Ver "O que foi feito na Fase 10" para o detalhe completo.
 
 ## Problemas conhecidos / pendências
-- A Fase 9 (QR Code) ainda não foi testada por você. A geração de imagem foi
-  validada com teste real fora do navegador; a leitura por câmera não dá pra
+- A Fase 10 (viagens) ainda não foi testada por você — formulário de
+  viagem, tela de listagem e a ficha ao tocar numa plataforma.
+- A Fase 9 (QR Code) também segue pendente de teste: geração de imagem
+  validada com teste real fora do navegador; leitura por câmera não dá pra
   testar neste ambiente de jeito nenhum — só no seu dispositivo.
 - Se o admin tiver POIs cadastrados longe de qualquer nó/aresta do grafo, a
   rota é recusada com "muito longe" — esperado (Fase 7, 2º teste), não é bug.
-- Bundle final em ~1117KB minificado (aviso do Vite) — não bloqueante, mas
-  cresceu bastante com o `html5-qrcode`; possível item de polimento na Fase
-  12 (code splitting).
-- Funções de domínio restantes em `storage.ts` (viagens, notificações)
-  seguem como stub — esperado até as fases correspondentes.
+- Bundle final em ~1127KB minificado (aviso do Vite) — não bloqueante, mas
+  cresceu bastante desde o `html5-qrcode` (Fase 9); possível item de
+  polimento na Fase 12 (code splitting).
+- Funções de domínio restantes em `storage.ts` (notificações) seguem como
+  stub — esperado até a Fase 11.
 
 ## Última atualização
 04/08/2026

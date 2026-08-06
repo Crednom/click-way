@@ -38,11 +38,12 @@ import SearchBar from './SearchBar';
 import SearchResultsList from './SearchResultsList';
 import CategoryFilterModal from './CategoryFilterModal';
 import QrScanner from '../qrcode/QrScanner';
-import { getMap, getPois, getCategories } from '../../shared/lib/storage';
+import TripInfoSheet from './TripInfoSheet';
+import { getMap, getPois, getCategories, getTrips } from '../../shared/lib/storage';
 import { calculateRoute, type RouteFailureReason, type RouteResult } from '../routing/calculateRoute';
 import { renderPoiIconHtml } from '../../shared/lib/poiIconHtml';
 import { Z_INDEX } from '../../shared/lib/zIndex';
-import type { Category, MapImage, Point, Poi } from '../../shared/types';
+import type { Category, MapImage, Point, Poi, Trip } from '../../shared/types';
 
 /** Quantos chips de categoria mostrar direto na tela antes de precisar abrir "Ver todas" (pedido do usuário: não deixar a fileira poluída). */
 const MAX_INLINE_CATEGORIES = 4;
@@ -57,6 +58,7 @@ function HomeScreen() {
   const [map, setMap] = useState<MapImage | null>(null);
   const [pois, setPois] = useState<Poi[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [query, setQuery] = useState('');
@@ -70,6 +72,7 @@ function HomeScreen() {
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [tripInfoPlatform, setTripInfoPlatform] = useState<Poi | null>(null);
 
   useEffect(() => {
     getMap()
@@ -77,6 +80,7 @@ function HomeScreen() {
       .finally(() => setLoading(false));
     setPois(getPois());
     setCategories(getCategories());
+    setTrips(getTrips());
   }, []);
 
   // Recalcula a rota (assíncrono: calculateRoute lê a escala do mapa) sempre
@@ -155,10 +159,31 @@ function HomeScreen() {
 
   const isSearching = query.trim() !== '' || selectedCategoryId !== null;
 
-  function handleSelectDestination(poi: Poi) {
+  function selectDestination(poi: Poi) {
     setDestination(poi);
     setQuery('');
     setSelectedCategoryId(null);
+  }
+
+  // Ponto de entrada único: se for uma plataforma com viagem cadastrada,
+  // mostra a ficha de informações (seção 2.2 do spec) antes de traçar rota;
+  // caso contrário, define como destino direto. Usado tanto pelo clique no
+  // mapa quanto pela seleção na busca, pra ter o mesmo comportamento nos
+  // dois caminhos.
+  function handlePoiSelected(poi: Poi) {
+    if (poi.category === 'plataforma') {
+      const trip = trips.find((item) => item.platformId === poi.id);
+      if (trip) {
+        setTripInfoPlatform(poi);
+        return;
+      }
+    }
+    selectDestination(poi);
+  }
+
+  function handleTraceRouteFromTripInfo() {
+    if (tripInfoPlatform) selectDestination(tripInfoPlatform);
+    setTripInfoPlatform(null);
   }
 
   function handleBackToSearch() {
@@ -177,13 +202,15 @@ function HomeScreen() {
   }
 
   // Tocar direto num ícone de local no mapa: se ainda não tem destino, esse
-  // toque define o destino (igual ao Google Maps); se já tem destino em
-  // rota, os outros locais nem aparecem (ver browseMarkers/routeMarkers
-  // abaixo), então esse handler só é relevante no modo "busca".
+  // toque passa pelo mesmo fluxo da busca (handlePoiSelected) — plataforma
+  // com viagem mostra a ficha, os demais viram destino direto (igual ao
+  // Google Maps), sem passar pela busca. Se já tem destino em rota, os
+  // outros locais nem aparecem (ver browseMarkers/routeMarkers abaixo),
+  // então esse handler só é relevante no modo "busca".
   function handleMarkerClick(markerId: string) {
     if (destination) return;
     const poi = pois.find((item) => item.id === markerId);
-    if (poi) handleSelectDestination(poi);
+    if (poi) handlePoiSelected(poi);
   }
 
   // Modo "busca" (sem destino ainda): mostra os POIs no mapa — filtrados pela
@@ -356,7 +383,7 @@ function HomeScreen() {
                     boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
                   }}
                 >
-                  <SearchResultsList pois={filteredPois} categories={categories} onSelect={handleSelectDestination} />
+                  <SearchResultsList pois={filteredPois} categories={categories} onSelect={handlePoiSelected} />
                 </div>
               )}
             </div>
@@ -495,6 +522,20 @@ function HomeScreen() {
       {scannerOpen && (
         <QrScanner onLocationFound={handleLocationFound} onClose={() => setScannerOpen(false)} />
       )}
+
+      {tripInfoPlatform &&
+        (() => {
+          const trip = trips.find((item) => item.platformId === tripInfoPlatform.id);
+          if (!trip) return null;
+          return (
+            <TripInfoSheet
+              platform={tripInfoPlatform}
+              trip={trip}
+              onTraceRoute={handleTraceRouteFromTripInfo}
+              onClose={() => setTripInfoPlatform(null)}
+            />
+          );
+        })()}
     </div>
   );
 }

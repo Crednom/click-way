@@ -87,17 +87,15 @@ export interface GraphEdge {
   type?: 'corredor' | 'escada' | 'escada_rolante' | 'elevador';
 }
 
-export interface Sector {
-  id: string;
-  name: string; // ex: "Setor A"
-  platformIds: string[];
-}
-
-export interface Platform {
-  id: string;
-  label: string; // ex: "A1"
-  poiId: string;
-}
+// DESVIO (Fase 10): `Sector` e `Platform` existiam como entidades separadas
+// no modelo original, mas essa divisão nunca virou uma fase própria no
+// roadmap (seção 11) — e desde a Fase 4 já existe a categoria de POI
+// 'plataforma', totalmente funcional (nome, posição no mapa, QR Code). Ter
+// "Platform" como uma segunda entidade representando a mesma coisa (um POI
+// categoria plataforma, só que com um "label" separado do "nome") seria
+// duplicar o mesmo conceito em dois lugares sem necessidade. Removidas —
+// `Trip.platformId` abaixo agora referencia diretamente o id de um Poi
+// (filtrado por `category === 'plataforma'` na tela de admin).
 
 export interface Trip {
   id: string;
@@ -110,6 +108,7 @@ export interface Trip {
     | 'cancelado'
     | 'embarque_iniciado'
     | 'embarque_encerrado';
+  /** Id de um Poi com category === 'plataforma' (ver DESVIO acima). */
   platformId: string;
 }
 
