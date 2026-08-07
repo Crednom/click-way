@@ -53,3 +53,23 @@ img {
   max-width: 100%;
   display: block;
 }
+
+/* Destaque de marcador no mapa (ex: plataforma da viagem ativa do
+   passageiro, adicionado depois da Fase 10). Aplicada via classe porque o
+   HTML do marcador do Leaflet é uma string crua — não dá pra usar
+   @keyframes só com estilo inline. */
+@keyframes clickway-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 179, 0, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(255, 179, 0, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 179, 0, 0);
+  }
+}
+
+.clickway-marker-pulse {
+  animation: clickway-pulse 2s ease-out infinite;
+}

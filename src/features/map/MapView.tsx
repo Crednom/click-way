@@ -30,6 +30,13 @@ export interface MapViewMarker {
    * genérico e sem depender de conceitos de POI/categoria.
    */
   iconHtml?: string;
+  /**
+   * Destaque visual (maior, borda dourada, animação pulsante) — usado pela
+   * HomeScreen do passageiro pra destacar a plataforma da viagem ativa.
+   * Genérico o suficiente pra qualquer outro uso futuro que precise chamar
+   * atenção pra um marcador específico.
+   */
+  highlighted?: boolean;
 }
 
 export interface MapViewLine {
@@ -79,20 +86,27 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+const HIGHLIGHT_COLOR = '#ffb300'; // dourado — não colide com as cores semânticas já usadas (categoria/severidade)
+const HIGHLIGHT_BADGE_SIZE = 36;
+
 function buildMarkerIcon(marker: MapViewMarker, showLabel: boolean): L.DivIcon {
   const color = marker.color ?? '#0b5fa5';
-  const badge = `<div style="width:${BADGE_SIZE}px;height:${BADGE_SIZE}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);">${marker.iconHtml ?? ''}</div>`;
+  const size = marker.highlighted ? HIGHLIGHT_BADGE_SIZE : BADGE_SIZE;
+  const border = marker.highlighted ? `3px solid ${HIGHLIGHT_COLOR}` : '2px solid #fff';
+  const pulseClass = marker.highlighted ? 'clickway-marker-pulse' : '';
+
+  const badge = `<div class="${pulseClass}" style="width:${size}px;height:${size}px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;border:${border};box-shadow:0 1px 4px rgba(0,0,0,0.35);">${marker.iconHtml ?? ''}</div>`;
 
   const label =
     showLabel && marker.label
-      ? `<span style="position:absolute;left:${BADGE_SIZE + 6}px;top:50%;transform:translateY(-50%);background:#fff;color:#14213d;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.25);">${escapeHtml(marker.label)}</span>`
+      ? `<span style="position:absolute;left:${size + 6}px;top:50%;transform:translateY(-50%);background:#fff;color:#14213d;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.25);">${escapeHtml(marker.label)}</span>`
       : '';
 
   return L.divIcon({
     className: '', // sem a classe padrão do Leaflet (que traz fundo/borda quadrada)
-    html: `<div style="position:relative;width:${BADGE_SIZE}px;height:${BADGE_SIZE}px;">${badge}${label}</div>`,
-    iconSize: [BADGE_SIZE, BADGE_SIZE],
-    iconAnchor: [BADGE_SIZE / 2, BADGE_SIZE / 2],
+    html: `<div style="position:relative;width:${size}px;height:${size}px;">${badge}${label}</div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
   });
 }
 

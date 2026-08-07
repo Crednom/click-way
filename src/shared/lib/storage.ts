@@ -281,6 +281,25 @@ export function deleteTrip(tripId: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Viagem ativa do passageiro — adicionado depois da Fase 10, a pedido do
+// usuário (não há fluxo de compra de passagem no MVP, então é preciso um
+// jeito simples de "escolher" qual viagem é a sua). Guarda só o ID, nunca os
+// dados da viagem em si — assim, se o admin editar a viagem (ex: trocar a
+// plataforma), o passageiro sempre vê a versão mais recente na próxima
+// leitura, sem precisar sincronizar nada manualmente.
+// ---------------------------------------------------------------------------
+
+const ACTIVE_TRIP_ID_KEY = 'activeTripId';
+
+export function getActiveTripId(): string | null {
+  return readJson<string | null>(ACTIVE_TRIP_ID_KEY, null);
+}
+
+export function setActiveTripId(tripId: string | null): void {
+  writeJson(ACTIVE_TRIP_ID_KEY, tripId);
+}
+
+// ---------------------------------------------------------------------------
 // QR Codes — implementado na Fase 9.
 // ---------------------------------------------------------------------------
 

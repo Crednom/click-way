@@ -313,7 +313,51 @@ nessa balança.
   numa plataforma pra ver a ficha) não testada num navegador de verdade
   neste ambiente.
 
+## Melhoria: viagem ativa do passageiro (pedido do usuário, pós-Fase 10)
+Como o MVP não tem fluxo de compra de passagem, faltava um jeito do
+passageiro "escolher" qual viagem é a dele, pra poder demonstrar o fluxo
+completo (ir direto pra sua plataforma, ver ela destacada no mapa).
 
+- `storage.ts`: `getActiveTripId()`/`setActiveTripId()` (novo) — guardam só
+  o **id** da viagem, nunca os dados dela. Isso é o que garante o requisito
+  "se a viagem for editada pelo admin, o passageiro reflete automaticamente"
+  — a cada leitura, os dados vêm frescos de `getTrips()`.
+- `src/features/map/MapView.tsx`: `MapViewMarker` ganhou `highlighted?:
+  boolean` — marcador maior (36px em vez de 28px), borda dourada e animação
+  pulsante (`clickway-marker-pulse`, `@keyframes` novo em `index.css` — não
+  dava pra fazer só com estilo inline, já que o HTML do marcador do Leaflet
+  é uma string crua). Genérico o suficiente pra qualquer destaque futuro, não
+  só viagem ativa.
+- `src/features/passenger/TripSelectorModal.tsx` (novo): lista todas as
+  viagens cadastradas, com a ativa destacada; permite trocar ou remover a
+  seleção. Uma das duas formas de escolher a viagem ativa.
+- `TripInfoSheet.tsx`: ganhou `isActive`/`onSetActive` — botão "★
+  Selecionar como minha viagem" quando ainda não é a ativa, ou um indicador
+  "★ Esta é a sua viagem ativa" quando já é. A outra forma de escolher.
+- `HomeScreen.tsx`:
+  - Card "Minha viagem" na tela de busca (só quando não está buscando
+    ativamente, pra não competir com os resultados): mostra a viagem ativa
+    + botão **"Ir para minha plataforma"** (define a plataforma como
+    destino direto, reaproveitando o fluxo de rota já existente), ou, se
+    não houver viagem ativa (ou ela tiver sido removida/plataforma
+    inválida), uma mensagem + botão "Selecionar viagem".
+  - O marcador da plataforma da viagem ativa aparece destacado tanto no
+    modo busca quanto no modo rota (se ela virar o destino) — sempre
+    visível enquanto houver uma viagem ativa, mesmo sem rota calculada,
+    como pedido.
+  - **Sincronização entre abas:** registrado um listener
+    (`onExternalStorageChange`, helper que já existia desde a Fase 1,
+    pensado exatamente pra isso) que recarrega viagens + viagem ativa
+    sempre que o localStorage muda numa aba diferente do mesmo navegador —
+    cobre o caso de o admin editar a viagem (ex: trocar plataforma) numa
+    aba enquanto o passageiro está aberto em outra, sem precisar recarregar
+    a página manualmente.
+- Validado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+  avisos. Ressalva de sempre: interação real (destaque pulsante, troca de
+  viagem, sincronização entre abas) não testada num navegador de verdade
+  neste ambiente.
+
+## Decisões tomadas ao longo do caminho (lista única, consolidada)
 - Adicionei `graphology-types` como dependência direta, não listada na seção
   3 do spec — peer dependency obrigatória do `graphology-shortest-path`.
 - Criei `src/shared/types/index.ts` já na Fase 1 (a seção 6 já listava esse
@@ -358,10 +402,17 @@ nessa balança.
 - **DESVIO (Fase 10):** `Sector`/`Platform` removidos do modelo de dados —
   `Trip.platformId` referencia diretamente um `Poi` categoria 'plataforma'.
   Ver "O que foi feito na Fase 10" para o detalhe completo.
+- Adicionei o conceito de "viagem ativa do passageiro" (pós-Fase 10, pedido
+  do usuário) — não estava no spec original nem no roadmap, mas é necessário
+  porque o MVP não tem fluxo de compra de passagem. `MapViewMarker` ganhou
+  `highlighted` como campo genérico (não específico de viagem).
 
 ## Problemas conhecidos / pendências
-- A Fase 10 (viagens) ainda não foi testada por você — formulário de
-  viagem, tela de listagem e a ficha ao tocar numa plataforma.
+- A melhoria de "viagem ativa" (card na tela, destaque pulsante no mapa,
+  seletor, sincronização entre abas) ainda não foi testada por você no
+  navegador.
+- A Fase 10 (viagens) também segue pendente de teste: formulário de viagem,
+  tela de listagem e a ficha ao tocar numa plataforma.
 - A Fase 9 (QR Code) também segue pendente de teste: geração de imagem
   validada com teste real fora do navegador; leitura por câmera não dá pra
   testar neste ambiente de jeito nenhum — só no seu dispositivo.

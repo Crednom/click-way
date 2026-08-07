@@ -39,7 +39,16 @@ import SearchResultsList from './SearchResultsList';
 import CategoryFilterModal from './CategoryFilterModal';
 import QrScanner from '../qrcode/QrScanner';
 import TripInfoSheet from './TripInfoSheet';
-import { getMap, getPois, getCategories, getTrips } from '../../shared/lib/storage';
+import TripSelectorModal from './TripSelectorModal';
+import {
+  getMap,
+  getPois,
+  getCategories,
+  getTrips,
+  getActiveTripId,
+  setActiveTripId,
+  onExternalStorageChange,
+} from '../../shared/lib/storage';
 import { calculateRoute, type RouteFailureReason, type RouteResult } from '../routing/calculateRoute';
 import { renderPoiIconHtml } from '../../shared/lib/poiIconHtml';
 import { Z_INDEX } from '../../shared/lib/zIndex';
@@ -73,6 +82,8 @@ function HomeScreen() {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [tripInfoPlatform, setTripInfoPlatform] = useState<Poi | null>(null);
+  const [activeTripId, setActiveTripIdState] = useState<string | null>(null);
+  const [tripSelectorOpen, setTripSelectorOpen] = useState(false);
 
   useEffect(() => {
     getMap()
@@ -81,6 +92,19 @@ function HomeScreen() {
     setPois(getPois());
     setCategories(getCategories());
     setTrips(getTrips());
+    setActiveTripIdState(getActiveTripId());
+  }, []);
+
+  // Se o admin editar uma viagem (ex: trocar a plataforma) numa outra aba do
+  // mesmo navegador, reflete aqui automaticamente — sem isso, o passageiro
+  // ficaria vendo dados desatualizados até recarregar a página manualmente
+  // (requisito: "buscar sempre os dados mais recentes"). Reaproveita o
+  // listener criado lá na Fase 1, pensado exatamente pra esse cenário.
+  useEffect(() => {
+    return onExternalStorageChange(() => {
+      setTrips(getTrips());
+      setActiveTripIdState(getActiveTripId());
+    });
   }, []);
 
   // Recalcula a rota (assíncrono: calculateRoute lê a escala do mapa) sempre
@@ -159,6 +183,27 @@ function HomeScreen() {
 
   const isSearching = query.trim() !== '' || selectedCategoryId !== null;
 
+  // Viagem ativa (adicionado depois da Fase 10). Guarda só o id — os dados
+  // da viagem (e da plataforma) são sempre buscados frescos de `trips`/
+  // `pois`, então uma edição do admin aparece aqui sem esforço extra.
+  const activeTrip = trips.find((trip) => trip.id === activeTripId) ?? null;
+  const activePlatformPoi = activeTrip ? pois.find((poi) => poi.id === activeTrip.platformId) ?? null : null;
+
+  function handleSelectActiveTrip(tripId: string) {
+    setActiveTripId(tripId);
+    setActiveTripIdState(tripId);
+    setTripSelectorOpen(false);
+  }
+
+  function handleClearActiveTrip() {
+    setActiveTripId(null);
+    setActiveTripIdState(null);
+  }
+
+  function handleGoToMyPlatform() {
+    if (activePlatformPoi) selectDestination(activePlatformPoi);
+  }
+
   function selectDestination(poi: Poi) {
     setDestination(poi);
     setQuery('');
@@ -226,13 +271,14 @@ function HomeScreen() {
       color: getCategoryMeta(poi.category).color,
       label: poi.name,
       iconHtml: renderPoiIconHtml(poi),
+      highlighted: activePlatformPoi ? poi.id === activePlatformPoi.id : false,
     }));
     if (originPoint) {
       markers.push({ id: 'origin', position: originPoint, color: 'var(--color-passenger)', label: 'Você está aqui' });
     }
     return markers;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pois, categories, selectedCategoryId, originPoint]);
+  }, [pois, categories, selectedCategoryId, originPoint, activePlatformPoi]);
 
   const routeMarkers: MapViewMarker[] = [];
   if (originPoint) {
@@ -250,6 +296,7 @@ function HomeScreen() {
       color: getCategoryMeta(destination.category).color,
       label: destination.name,
       iconHtml: renderPoiIconHtml(destination),
+      highlighted: activePlatformPoi ? destination.id === activePlatformPoi.id : false,
     });
   }
 
@@ -372,7 +419,7 @@ function HomeScreen() {
                 </div>
               )}
 
-              {isSearching && (
+              {isSearching ? (
                 <div
                   style={{
                     background: 'var(--color-surface)',
@@ -384,6 +431,85 @@ function HomeScreen() {
                   }}
                 >
                   <SearchResultsList pois={filteredPois} categories={categories} onSelect={handlePoiSelected} />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    background: 'var(--color-surface)',
+                    borderRadius: '14px',
+                    padding: '12px 14px',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  {activeTrip && activePlatformPoi ? (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                        <div>
+                          <strong style={{ fontSize: '0.85rem' }}>
+                            ★ {activeTrip.company} — {activePlatformPoi.name}
+                          </strong>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+                            {activeTrip.destination} · {activeTrip.time}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setTripSelectorOpen(true)}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-passenger)',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          Trocar
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleGoToMyPlatform}
+                        style={{
+                          background: 'var(--color-passenger)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '10px',
+                          fontWeight: 600,
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        Ir para minha plataforma
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+                        {activeTripId
+                          ? 'Sua viagem selecionada não está mais disponível.'
+                          : 'Nenhuma viagem selecionada ainda.'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setTripSelectorOpen(true)}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: '8px',
+                          padding: '8px',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          color: 'var(--color-text)',
+                        }}
+                      >
+                        Selecionar viagem
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -531,11 +657,26 @@ function HomeScreen() {
             <TripInfoSheet
               platform={tripInfoPlatform}
               trip={trip}
+              isActive={trip.id === activeTripId}
               onTraceRoute={handleTraceRouteFromTripInfo}
+              onSetActive={() => handleSelectActiveTrip(trip.id)}
               onClose={() => setTripInfoPlatform(null)}
             />
           );
         })()}
+      {tripSelectorOpen && (
+        <TripSelectorModal
+          trips={trips}
+          platformPois={pois.filter((poi) => poi.category === 'plataforma')}
+          activeTripId={activeTripId}
+          onSelect={handleSelectActiveTrip}
+          onClear={() => {
+            handleClearActiveTrip();
+            setTripSelectorOpen(false);
+          }}
+          onClose={() => setTripSelectorOpen(false)}
+        />
+      )}
     </div>
   );
 }
