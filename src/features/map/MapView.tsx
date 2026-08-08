@@ -192,7 +192,16 @@ function MapView({
         }
         if (showLabel) placedLabelPoints.push(screenPoint);
 
-        const markerLayer = L.marker(latLng, { icon: buildMarkerIcon(marker, showLabel) });
+        const markerLayer = L.marker(latLng, {
+          icon: buildMarkerIcon(marker, showLabel),
+          // O Leaflet, por padrão, ordena marcadores pela posição vertical
+          // (efeito pseudo-3D: quem está "mais embaixo" no mapa fica por
+          // cima). Isso não tem nada a ver com importância — por isso um
+          // marcador destacado (`highlighted`) pode acabar renderizado
+          // embaixo de outro só por estar mais alto na planta. Forçamos um
+          // z-index bem maior pra ele sempre vencer essa ordenação.
+          zIndexOffset: marker.highlighted ? 1000 : 0,
+        });
         markerLayer.on('click', (event: L.LeafletMouseEvent) => {
           L.DomEvent.stopPropagation(event);
           onMarkerClickRef.current?.(marker.id);

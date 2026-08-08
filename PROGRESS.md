@@ -407,10 +407,25 @@ completo (ir direto pra sua plataforma, ver ela destacada no mapa).
   porque o MVP não tem fluxo de compra de passagem. `MapViewMarker` ganhou
   `highlighted` como campo genérico (não específico de viagem).
 
+## Correção após teste do usuário — z-index do marcador destacado
+Você testou e reportou: o marcador destacado da plataforma da viagem ativa
+aparecia **embaixo** de outros marcadores próximos, em vez de sempre por
+cima.
+
+Causa: o Leaflet, por padrão, ordena marcadores pela posição vertical no
+mapa (efeito pseudo-3D — quem está mais "embaixo" na planta fica visualmente
+por cima), sem nenhuma relação com importância. Corrigido em `MapView.tsx`:
+`L.marker` agora recebe `zIndexOffset: 1000` quando `marker.highlighted` é
+verdadeiro, garantindo que ele sempre vença essa ordenação automática,
+independente da posição dos outros marcadores ao redor.
+
+Revalidado com `npx tsc -b`, `npm run build` e `npm run lint` — 0 erros, 0
+avisos.
+
 ## Problemas conhecidos / pendências
-- A melhoria de "viagem ativa" (card na tela, destaque pulsante no mapa,
-  seletor, sincronização entre abas) ainda não foi testada por você no
-  navegador.
+- Depois da correção de z-index, ainda falta confirmar visualmente o
+  restante da melhoria de "viagem ativa" (card na tela, animação pulsante,
+  seletor, sincronização entre abas).
 - A Fase 10 (viagens) também segue pendente de teste: formulário de viagem,
   tela de listagem e a ficha ao tocar numa plataforma.
 - A Fase 9 (QR Code) também segue pendente de teste: geração de imagem
@@ -418,7 +433,7 @@ completo (ir direto pra sua plataforma, ver ela destacada no mapa).
   testar neste ambiente de jeito nenhum — só no seu dispositivo.
 - Se o admin tiver POIs cadastrados longe de qualquer nó/aresta do grafo, a
   rota é recusada com "muito longe" — esperado (Fase 7, 2º teste), não é bug.
-- Bundle final em ~1127KB minificado (aviso do Vite) — não bloqueante, mas
+- Bundle final em ~1132KB minificado (aviso do Vite) — não bloqueante, mas
   cresceu bastante desde o `html5-qrcode` (Fase 9); possível item de
   polimento na Fase 12 (code splitting).
 - Funções de domínio restantes em `storage.ts` (notificações) seguem como
